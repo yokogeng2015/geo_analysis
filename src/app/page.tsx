@@ -8,6 +8,7 @@ import { DimensionDetail } from '@/components/dimension-detail';
 import { ScoreGauge } from '@/components/score-gauge';
 import { CodeOptimizer } from '@/components/code-optimizer';
 import { analyzeHTMLCode } from '@/lib/code-optimizer';
+import { exportToPdf } from '@/lib/pdf-export';
 import type { AnalysisResult } from '@/types/geo';
 import { TECHNICAL_DIMENSIONS, CONTENT_DIMENSIONS } from '@/types/geo';
 import { cn } from '@/lib/utils';
@@ -37,6 +38,7 @@ export default function Home() {
   const [error, setError] = useState('');
   const [result, setResult] = useState<AnalyzeResponse | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('technical');
+  const [exporting, setExporting] = useState(false);
 
   // Optimize mode state
   const [htmlCode, setHtmlCode] = useState('');
@@ -113,6 +115,19 @@ export default function Home() {
   const handleOptimizedCodeChange = useCallback((code: string) => {
     setOptimizedCode(code);
   }, []);
+
+  const handleExportPdf = useCallback(async () => {
+    if (!result) return;
+    setExporting(true);
+    try {
+      const domain = result.main.url.replace(/^https?:\/\//, '').replace(/\//g, '_');
+      await exportToPdf('geo-report', `GEO分析报告_${domain}.pdf`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'PDF 导出失败');
+    } finally {
+      setExporting(false);
+    }
+  }, [result]);
 
   const currentCategory =
     activeTab === 'technical' ? result?.main.technicalGEO : result?.main.contentGEO;
@@ -389,7 +404,7 @@ export default function Home() {
 
             {/* Results */}
             {result && !loading && (
-              <div className="space-y-8">
+              <div id="geo-report" className="space-y-8">
                 {/* Page info */}
                 <div className="flex items-center gap-4 p-4 rounded-xl bg-white border border-gray-200 shadow-sm">
                   <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-sky-100 to-amber-100 flex items-center justify-center">
@@ -416,6 +431,33 @@ export default function Home() {
                   <div className="text-xs text-gray-400">
                     {new Date(result.main.analyzedAt).toLocaleString('zh-CN')}
                   </div>
+                  <button
+                    onClick={handleExportPdf}
+                    disabled={exporting}
+                    className={cn(
+                      'ml-auto flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all shrink-0',
+                      exporting
+                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        : 'bg-sky-50 text-sky-600 hover:bg-sky-100 border border-sky-200'
+                    )}
+                  >
+                    {exporting ? (
+                      <>
+                        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                        生成中...
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        下载 PDF
+                      </>
+                    )}
+                  </button>
                 </div>
 
                 {/* Score gauges */}
