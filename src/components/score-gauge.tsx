@@ -44,14 +44,14 @@ export function ScoreGauge({
 
   const colorConfig = {
     cyan: {
-      stroke: '#00d4ff',
-      glow: 'rgba(0, 212, 255, 0.3)',
-      text: 'text-cyan-400',
+      stroke: '#0ea5e9',
+      glow: 'rgba(14, 165, 233, 0.2)',
+      text: 'text-sky-600',
     },
     orange: {
-      stroke: '#ff9f43',
-      glow: 'rgba(255, 159, 67, 0.3)',
-      text: 'text-orange-400',
+      stroke: '#f59e0b',
+      glow: 'rgba(245, 158, 11, 0.2)',
+      text: 'text-amber-600',
     },
   };
 
@@ -67,7 +67,7 @@ export function ScoreGauge({
             cy={size / 2}
             r={radius}
             fill="none"
-            stroke="rgba(255,255,255,0.05)"
+            stroke="rgba(0,0,0,0.06)"
             strokeWidth={strokeWidth}
           />
           {/* Score circle */}
@@ -93,7 +93,7 @@ export function ScoreGauge({
           </span>
         </div>
       </div>
-      <span className="text-xs text-gray-400 font-medium">{label}</span>
+      <span className="text-xs text-gray-500 font-medium">{label}</span>
     </div>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import type { CodeSuggestion } from '@/types/geo';
 import { cn } from '@/lib/utils';
 
@@ -14,15 +14,15 @@ interface CodeSuggestionCardProps {
 const typeLabels: Record<string, { label: string; className: string }> = {
   optimize: {
     label: '优化',
-    className: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
+    className: 'bg-sky-100 text-sky-700 border-sky-200',
   },
   add: {
     label: '新增',
-    className: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
+    className: 'bg-emerald-100 text-emerald-700 border-emerald-200',
   },
   fix: {
     label: '修复',
-    className: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+    className: 'bg-amber-100 text-amber-700 border-amber-200',
   },
 };
 
@@ -34,16 +34,16 @@ export function CodeSuggestionCard({
   const typeInfo = typeLabels[suggestion.type] || typeLabels.optimize;
 
   const borderColor =
-    accentColor === 'cyan' ? 'border-cyan-500/30' : 'border-orange-500/30';
+    accentColor === 'cyan' ? 'border-sky-200' : 'border-amber-200';
   const accentBg =
     accentColor === 'cyan'
-      ? 'bg-cyan-500/5 hover:bg-cyan-500/10'
-      : 'bg-orange-500/5 hover:bg-orange-500/10';
+      ? 'bg-sky-50 hover:bg-sky-100'
+      : 'bg-amber-50 hover:bg-amber-100';
 
   return (
     <div
       className={cn(
-        'rounded-xl border bg-[#1a1a2e] overflow-hidden transition-all',
+        'rounded-xl border bg-white overflow-hidden shadow-sm',
         borderColor
       )}
     >
@@ -58,21 +58,21 @@ export function CodeSuggestionCard({
           >
             {typeInfo.label}
           </span>
-          <h4 className="text-white font-semibold text-sm">
+          <h4 className="text-gray-900 font-semibold text-sm">
             {suggestion.title}
           </h4>
         </div>
-        <p className="text-gray-400 text-sm mt-2">{suggestion.description}</p>
+        <p className="text-gray-500 text-sm mt-2">{suggestion.description}</p>
       </div>
 
       {/* Code blocks */}
       <div className="relative">
         {/* Original code (collapsible) */}
         {suggestion.originalCode && (
-          <div className="border-b border-white/5">
+          <div className="border-b border-gray-100">
             <button
               onClick={() => setShowOriginal(!showOriginal)}
-              className="w-full px-5 py-2.5 flex items-center gap-2 text-xs text-gray-400 hover:text-gray-200 transition-colors bg-[#0d0d15]"
+              className="w-full px-5 py-2.5 flex items-center gap-2 text-xs text-gray-500 hover:text-gray-700 transition-colors bg-gray-50"
             >
               <svg
                 className={cn(
@@ -94,16 +94,16 @@ export function CodeSuggestionCard({
             </button>
             {showOriginal && (
               <div className="relative">
-                <div className="absolute top-2 right-2 px-2 py-0.5 rounded text-[10px] bg-gray-700/50 text-gray-400 z-10">
+                <div className="absolute top-2 right-2 px-2 py-0.5 rounded text-[10px] bg-gray-200 text-gray-500 z-10">
                   原始代码
                 </div>
                 <SyntaxHighlighter
                   language={suggestion.language}
-                  style={vscDarkPlus}
+                  style={oneLight}
                   customStyle={{
                     margin: 0,
                     padding: '1.25rem',
-                    background: '#0d0d15',
+                    background: '#f9fafb',
                     fontSize: '0.8rem',
                     lineHeight: '1.6',
                   }}
@@ -122,22 +122,22 @@ export function CodeSuggestionCard({
             className={cn(
               'absolute top-2 right-2 px-2 py-0.5 rounded text-[10px] z-10 font-medium',
               accentColor === 'cyan'
-                ? 'bg-cyan-500/20 text-cyan-300'
-                : 'bg-orange-500/20 text-orange-300'
+                ? 'bg-sky-100 text-sky-700'
+                : 'bg-amber-100 text-amber-700'
             )}
           >
             优化代码
           </div>
           <SyntaxHighlighter
             language={suggestion.language}
-            style={vscDarkPlus}
+            style={oneLight}
             customStyle={{
               margin: 0,
               padding: '1.25rem',
-              background: '#12121a',
+              background: '#f0f9ff',
               fontSize: '0.8rem',
               lineHeight: '1.6',
-              borderLeft: `3px solid ${accentColor === 'cyan' ? '#00d4ff' : '#ff9f43'}`,
+              borderLeft: `3px solid ${accentColor === 'cyan' ? '#0ea5e9' : '#f59e0b'}`,
             }}
             wrapLongLines
           >

@@ -37,29 +37,29 @@ interface RadarChartProps {
 
 const COLORS = [
   {
-    border: 'rgba(0, 212, 255, 0.9)',
-    bg: 'rgba(0, 212, 255, 0.12)',
-    point: 'rgba(0, 212, 255, 1)',
+    border: 'rgba(14, 165, 233, 0.8)',
+    bg: 'rgba(14, 165, 233, 0.1)',
+    point: 'rgba(14, 165, 233, 1)',
   },
   {
-    border: 'rgba(255, 159, 67, 0.9)',
-    bg: 'rgba(255, 159, 67, 0.12)',
-    point: 'rgba(255, 159, 67, 1)',
+    border: 'rgba(245, 158, 11, 0.8)',
+    bg: 'rgba(245, 158, 11, 0.1)',
+    point: 'rgba(245, 158, 11, 1)',
   },
   {
-    border: 'rgba(0, 230, 118, 0.9)',
-    bg: 'rgba(0, 230, 118, 0.12)',
-    point: 'rgba(0, 230, 118, 1)',
+    border: 'rgba(16, 185, 129, 0.8)',
+    bg: 'rgba(16, 185, 129, 0.1)',
+    point: 'rgba(16, 185, 129, 1)',
   },
   {
-    border: 'rgba(255, 82, 82, 0.9)',
-    bg: 'rgba(255, 82, 82, 0.12)',
-    point: 'rgba(255, 82, 82, 1)',
+    border: 'rgba(239, 68, 68, 0.8)',
+    bg: 'rgba(239, 68, 68, 0.1)',
+    point: 'rgba(239, 68, 68, 1)',
   },
   {
-    border: 'rgba(171, 71, 188, 0.9)',
-    bg: 'rgba(171, 71, 188, 0.12)',
-    point: 'rgba(171, 71, 188, 1)',
+    border: 'rgba(139, 92, 246, 0.8)',
+    bg: 'rgba(139, 92, 246, 0.1)',
+    point: 'rgba(139, 92, 246, 1)',
   },
 ];
 
@@ -97,7 +97,7 @@ export function RadarChart({ title, datasets, dimensions }: RadarChartProps) {
         display: true,
         position: 'top' as const,
         labels: {
-          color: 'rgba(255, 255, 255, 0.8)',
+          color: 'rgba(0, 0, 0, 0.7)',
           font: { size: 12, family: 'Inter, sans-serif' },
           padding: 16,
           usePointStyle: true,
@@ -105,10 +105,10 @@ export function RadarChart({ title, datasets, dimensions }: RadarChartProps) {
         },
       },
       tooltip: {
-        backgroundColor: 'rgba(18, 18, 26, 0.95)',
-        titleColor: '#fff',
-        bodyColor: '#ccc',
-        borderColor: 'rgba(255,255,255,0.1)',
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+        titleColor: '#1f2937',
+        bodyColor: '#6b7280',
+        borderColor: 'rgba(0,0,0,0.1)',
         borderWidth: 1,
         padding: 12,
         callbacks: {
@@ -128,19 +128,19 @@ export function RadarChart({ title, datasets, dimensions }: RadarChartProps) {
         min: 0,
         ticks: {
           stepSize: 20,
-          color: 'rgba(255, 255, 255, 0.3)',
+          color: 'rgba(0, 0, 0, 0.3)',
           backdropColor: 'transparent',
           font: { size: 10 },
         },
         grid: {
-          color: 'rgba(255, 255, 255, 0.06)',
+          color: 'rgba(0, 0, 0, 0.06)',
           circular: true,
         },
         angleLines: {
-          color: 'rgba(255, 255, 255, 0.06)',
+          color: 'rgba(0, 0, 0, 0.06)',
         },
         pointLabels: {
-          color: 'rgba(255, 255, 255, 0.7)',
+          color: 'rgba(0, 0, 0, 0.6)',
           font: {
             size: 11,
             family: 'Inter, sans-serif',
