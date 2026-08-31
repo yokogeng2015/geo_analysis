@@ -154,7 +154,7 @@ export function CodeOptimizer({
           <div className="divide-y divide-gray-100 max-h-[400px] overflow-y-auto">
             {altIssues.map((issue, i) => (
               <div key={i} className="px-5 py-3">
-                <div className="flex items-center gap-2 mb-2">
+                <div className="flex items-center gap-2 mb-1.5">
                   <span className="text-xs text-gray-400 font-mono">行 {issue.line}</span>
                   <span className={cn(
                     'px-2 py-0.5 rounded text-[10px] font-medium',
@@ -164,6 +164,9 @@ export function CodeOptimizer({
                   )}>
                     {issue.type === 'missing' ? '缺少 alt' : issue.type === 'empty' ? 'alt 为空' : 'alt 无意义'}
                   </span>
+                  {issue.reason && (
+                    <span className="text-xs text-red-500">{issue.reason}</span>
+                  )}
                 </div>
                 <div className="flex items-center gap-3">
                   <code className="flex-1 text-xs text-gray-500 bg-gray-50 px-3 py-1.5 rounded font-mono truncate">

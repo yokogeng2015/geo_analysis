@@ -3,6 +3,7 @@ export interface AltIssue {
   original: string;
   type: 'missing' | 'empty' | 'meaningless';
   suggestion: string;
+  reason?: string;
 }
 
 export interface FAQIssue {
@@ -44,9 +45,63 @@ const MEANINGLESS_ALTS = [
   ' ',
 ];
 
+// Descriptive words that indicate a meaningful alt text
+const DESCRIPTIVE_WORDS = [
+  '展示', '显示', '介绍', '说明', '图解', '示意图', '正面', '背面', '侧面',
+  '外观', '细节', '特写', '全景', '对比', '使用', '操作', '界面', '截图',
+  '场景', '效果', '功能', '特点', '优势', '参数', '规格', '配置',
+  'show', 'display', 'view', 'detail', 'close-up', 'overview', 'screenshot',
+  'interface', 'dashboard', 'diagram', 'illustration', 'photo of', 'image of',
+];
+
+// Common brand names that often appear as bare product names
+const BRAND_NAMES = [
+  'apple', 'samsung', 'sony', 'huawei', 'xiaomi', 'oppo', 'vivo',
+  'google', 'microsoft', 'amazon', 'tesla', 'nike', 'adidas',
+  'iphone', 'ipad', 'macbook', 'airpods', 'galaxy', 'pixel',
+  'apple', '华为', '小米', '三星', '索尼', 'oppo', 'vivo', '荣耀',
+];
+
 function isMeaninglessAlt(alt: string): boolean {
-  const trimmed = alt.trim().toLowerCase();
-  return MEANINGLESS_ALTS.includes(trimmed) || trimmed.length <= 2;
+  const trimmed = alt.trim();
+  const lower = trimmed.toLowerCase();
+
+  // Exact match against known meaningless list
+  if (MEANINGLESS_ALTS.includes(lower)) return true;
+
+  // Too short to be descriptive (Chinese ≤ 4 chars, English ≤ 15 chars)
+  const isChinese = /[\u4e00-\u9fa5]/.test(trimmed);
+  if (isChinese && trimmed.length <= 4) return true;
+  if (!isChinese && trimmed.length <= 15) {
+    // Short English text - check if it's just a product name/model
+    // Pattern: Brand + Model number (e.g., "iPhone 15 Pro", "X1 Carbon Gen 11")
+    const modelPattern = /^[A-Z][a-zA-Z]*\s*\d+[A-Z]*\s*[A-Za-z]*$/;
+    if (modelPattern.test(trimmed)) return true;
+
+    // Just a brand name
+    if (BRAND_NAMES.includes(lower)) return true;
+
+    // Just numbers and letters (model codes like "A2345", "X1C")
+    const codePattern = /^[A-Z0-9\s\-]+$/;
+    if (codePattern.test(trimmed) && trimmed.length <= 10) return true;
+  }
+
+  // Check if alt contains any descriptive words
+  const hasDescriptiveWord = DESCRIPTIVE_WORDS.some((word) =>
+    lower.includes(word)
+  );
+  if (!hasDescriptiveWord) {
+    // No descriptive words - check if it's just a noun phrase
+    // A good alt should have verbs, adjectives, or context words
+    // Pure noun phrases like "laptop computer", "wireless headphones" are weak
+    const words = trimmed.split(/\s+/);
+    if (words.length <= 3 && !hasDescriptiveWord) {
+      // Very short noun phrase without description
+      return true;
+    }
+  }
+
+  return false;
 }
 
 function extractFilename(src: string): string {
@@ -62,7 +117,6 @@ function extractFilename(src: string): string {
 }
 
 export function analyzeHTMLCode(html: string): CodeAnalysisResult {
-  const lines = html.split('\n');
   const altIssues: AltIssue[] = [];
   let totalImages = 0;
   let imagesWithAlt = 0;
@@ -81,7 +135,10 @@ export function analyzeHTMLCode(html: string): CodeAnalysisResult {
       imagesWithoutAlt++;
       const lineNum = html.substring(0, imgMatch.index).split('\n').length;
       const src = srcMatch ? srcMatch[1] : '';
-      const suggestedAlt = src ? `描述${extractFilename(src)}的图片内容` : '请描述图片内容';
+      const filename = src ? extractFilename(src) : '';
+      const suggestedAlt = filename
+        ? `${filename}的产品展示图，描述图片中的具体内容和场景`
+        : '请描述图片内容，包括主体、场景和关键信息';
       altIssues.push({
         line: lineNum,
         original: imgMatch[0],
@@ -94,13 +151,29 @@ export function analyzeHTMLCode(html: string): CodeAnalysisResult {
         imagesWithoutAlt++;
         const lineNum = html.substring(0, imgMatch.index).split('\n').length;
         const src = srcMatch ? srcMatch[1] : '';
-        const suggestedAlt = src ? `描述${extractFilename(src)}的图片内容` : '请描述图片内容';
+        const filename = src ? extractFilename(src) : '';
+        // Provide a more specific suggestion based on what's wrong
+        let reason = '';
+        if (altValue.trim() === '') {
+          reason = 'alt 为空';
+        } else if (altValue.length <= 4 && /[\u4e00-\u9fa5]/.test(altValue)) {
+          reason = `alt "${altValue}" 过短，仅为名词，缺少描述性内容`;
+        } else if (altValue.length <= 15 && !/[\u4e00-\u9fa5]/.test(altValue)) {
+          reason = `alt "${altValue}" 仅为产品名/型号，缺少对图片内容的描述`;
+        } else {
+          reason = `alt "${altValue}" 无实际描述意义`;
+        }
+        const suggestedAlt = filename
+          ? `${filename}的产品展示图，描述图片中的具体内容和场景`
+          : '请描述图片内容，包括主体、场景和关键信息';
         altIssues.push({
           line: lineNum,
           original: imgMatch[0],
           type: altValue.trim() === '' ? 'empty' : 'meaningless',
           suggestion: suggestedAlt,
         });
+        // Store the reason for display
+        (altIssues[altIssues.length - 1] as AltIssue & { reason?: string }).reason = reason;
       } else {
         imagesWithAlt++;
       }
