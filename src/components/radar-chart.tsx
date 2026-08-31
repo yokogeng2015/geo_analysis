@@ -21,71 +21,102 @@ ChartJS.register(
   Legend
 );
 
-interface RadarChartProps {
-  title: string;
+export interface RadarDataset {
+  label: string;
   dimensions: DimensionScore[];
-  color: 'cyan' | 'orange';
+  borderColor: string;
+  backgroundColor: string;
+  pointColor: string;
 }
 
-export function RadarChart({ title, dimensions, color }: RadarChartProps) {
-  const colorConfig = {
-    cyan: {
-      border: 'rgba(0, 212, 255, 0.9)',
-      bg: 'rgba(0, 212, 255, 0.15)',
-      point: 'rgba(0, 212, 255, 1)',
-      glow: 'rgba(0, 212, 255, 0.3)',
-    },
-    orange: {
-      border: 'rgba(255, 159, 67, 0.9)',
-      bg: 'rgba(255, 159, 67, 0.15)',
-      point: 'rgba(255, 159, 67, 1)',
-      glow: 'rgba(255, 159, 67, 0.3)',
-    },
-  };
+interface RadarChartProps {
+  title: string;
+  datasets: RadarDataset[];
+  dimensions: string[];
+}
 
-  const c = colorConfig[color];
+const COLORS = [
+  {
+    border: 'rgba(0, 212, 255, 0.9)',
+    bg: 'rgba(0, 212, 255, 0.12)',
+    point: 'rgba(0, 212, 255, 1)',
+  },
+  {
+    border: 'rgba(255, 159, 67, 0.9)',
+    bg: 'rgba(255, 159, 67, 0.12)',
+    point: 'rgba(255, 159, 67, 1)',
+  },
+  {
+    border: 'rgba(0, 230, 118, 0.9)',
+    bg: 'rgba(0, 230, 118, 0.12)',
+    point: 'rgba(0, 230, 118, 1)',
+  },
+  {
+    border: 'rgba(255, 82, 82, 0.9)',
+    bg: 'rgba(255, 82, 82, 0.12)',
+    point: 'rgba(255, 82, 82, 1)',
+  },
+  {
+    border: 'rgba(171, 71, 188, 0.9)',
+    bg: 'rgba(171, 71, 188, 0.12)',
+    point: 'rgba(171, 71, 188, 1)',
+  },
+];
 
-  const data = {
-    labels: dimensions.map((d) => d.name),
-    datasets: [
-      {
-        label: title,
-        data: dimensions.map((d) => d.score),
-        backgroundColor: c.bg,
-        borderColor: c.border,
+export function RadarChart({ title, datasets, dimensions }: RadarChartProps) {
+  const chartData = {
+    labels: dimensions,
+    datasets: datasets.map((ds, i) => {
+      const color = COLORS[i % COLORS.length];
+      return {
+        label: ds.label,
+        data: ds.dimensions.map((d) => d.score),
+        backgroundColor: color.bg,
+        borderColor: color.border,
         borderWidth: 2,
-        pointBackgroundColor: c.point,
-        pointBorderColor: c.point,
+        pointBackgroundColor: color.point,
+        pointBorderColor: color.point,
         pointHoverBackgroundColor: '#fff',
-        pointHoverBorderColor: c.border,
-        pointRadius: 5,
-        pointHoverRadius: 7,
+        pointHoverBorderColor: color.border,
+        pointRadius: 4,
+        pointHoverRadius: 6,
         fill: true,
-      },
-    ],
+      };
+    }),
   };
 
   const options = {
     responsive: true,
     maintainAspectRatio: true,
     animation: {
-      duration: 1500,
+      duration: 1200,
       easing: 'easeOutQuart' as const,
     },
     plugins: {
       legend: {
-        display: false,
+        display: true,
+        position: 'top' as const,
+        labels: {
+          color: 'rgba(255, 255, 255, 0.8)',
+          font: { size: 12, family: 'Inter, sans-serif' },
+          padding: 16,
+          usePointStyle: true,
+          pointStyle: 'circle',
+        },
       },
       tooltip: {
         backgroundColor: 'rgba(18, 18, 26, 0.95)',
         titleColor: '#fff',
         bodyColor: '#ccc',
-        borderColor: c.border,
+        borderColor: 'rgba(255,255,255,0.1)',
         borderWidth: 1,
         padding: 12,
         callbacks: {
-          label: function (context: { parsed: { r: number } }) {
-            return `得分: ${context.parsed.r}/100`;
+          label: function (context: {
+            dataset: { label?: string };
+            parsed: { r: number };
+          }) {
+            return `${context.dataset.label}: ${context.parsed.r}/100`;
           },
         },
       },
@@ -97,19 +128,19 @@ export function RadarChart({ title, dimensions, color }: RadarChartProps) {
         min: 0,
         ticks: {
           stepSize: 20,
-          color: 'rgba(255, 255, 255, 0.4)',
+          color: 'rgba(255, 255, 255, 0.3)',
           backdropColor: 'transparent',
           font: { size: 10 },
         },
         grid: {
-          color: 'rgba(255, 255, 255, 0.08)',
+          color: 'rgba(255, 255, 255, 0.06)',
           circular: true,
         },
         angleLines: {
-          color: 'rgba(255, 255, 255, 0.08)',
+          color: 'rgba(255, 255, 255, 0.06)',
         },
         pointLabels: {
-          color: 'rgba(255, 255, 255, 0.75)',
+          color: 'rgba(255, 255, 255, 0.7)',
           font: {
             size: 11,
             family: 'Inter, sans-serif',
@@ -120,13 +151,5 @@ export function RadarChart({ title, dimensions, color }: RadarChartProps) {
     },
   };
 
-  return (
-    <div className="relative">
-      <div
-        className="absolute inset-0 rounded-full blur-3xl opacity-20"
-        style={{ background: c.glow }}
-      />
-      <Radar data={data} options={options} />
-    </div>
-  );
+  return <Radar data={chartData} options={options} />;
 }
