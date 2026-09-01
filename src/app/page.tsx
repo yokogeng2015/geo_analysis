@@ -512,7 +512,7 @@ export default function Home() {
 
                 {/* Single Radar Chart */}
                 <div className={cn(
-                  'rounded-2xl bg-white p-6 shadow-sm max-w-2xl mx-auto',
+                  'rounded-2xl bg-white p-8 shadow-sm max-w-3xl mx-auto',
                   activeTab === 'technical' ? 'border-2 border-sky-200' : 'border-2 border-amber-200'
                 )}>
                   <RadarChart

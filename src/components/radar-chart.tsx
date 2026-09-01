@@ -168,16 +168,26 @@ export function RadarChart({ title, datasets, dimensions, dimensionLabels }: Rad
       duration: 1200,
       easing: 'easeOutQuart' as const,
     },
+    layout: {
+      padding: {
+        top: 10,
+        bottom: 30,
+        left: 30,
+        right: 30,
+      },
+    },
     plugins: {
       legend: {
         display: true,
-        position: 'top' as const,
+        position: 'bottom' as const,
         labels: {
           color: 'rgba(0, 0, 0, 0.7)',
           font: { size: 12, family: 'Inter, sans-serif' },
-          padding: 16,
+          padding: 12,
           usePointStyle: true,
           pointStyle: 'circle',
+          boxWidth: 8,
+          boxHeight: 8,
         },
       },
       tooltip: {
