@@ -52,8 +52,19 @@ export async function POST(request: NextRequest) {
 
     const mainResult = results[0];
     if (mainResult.status === 'rejected') {
+      const errorMsg = String(mainResult.reason);
+      let friendlyMsg = errorMsg;
+      if (errorMsg.includes('403')) {
+        friendlyMsg = '该网站拒绝了访问请求（403 Forbidden），可能设置了反爬策略。请尝试其他 URL 或检查网址是否正确。';
+      } else if (errorMsg.includes('404')) {
+        friendlyMsg = '该页面不存在（404 Not Found），请检查 URL 是否正确。';
+      } else if (errorMsg.includes('ETIMEDOUT') || errorMsg.includes('timeout')) {
+        friendlyMsg = '请求超时，该网站响应过慢或无法访问。';
+      } else if (errorMsg.includes('ENOTFOUND') || errorMsg.includes('getaddrinfo')) {
+        friendlyMsg = '无法解析该域名，请检查 URL 是否正确。';
+      }
       return NextResponse.json(
-        { error: `主 URL 分析失败: ${mainResult.reason}` },
+        { error: `主 URL 分析失败: ${friendlyMsg}` },
         { status: 500 }
       );
     }
