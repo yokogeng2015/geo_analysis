@@ -7,6 +7,8 @@ interface DimensionDetailProps {
   dimension: DimensionScore;
   accentColor: 'cyan' | 'orange';
   chineseName?: string;
+  showOptimizationBtn?: boolean;
+  onOptimizationClick?: () => void;
 }
 
 function getScoreColor(score: number): string {
@@ -25,6 +27,8 @@ export function DimensionDetail({
   dimension,
   accentColor,
   chineseName,
+  showOptimizationBtn,
+  onOptimizationClick,
 }: DimensionDetailProps) {
   const accentText =
     accentColor === 'cyan' ? 'text-sky-600' : 'text-amber-600';
@@ -32,12 +36,25 @@ export function DimensionDetail({
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
       <div className="flex items-center justify-between mb-3">
-        <div>
-          <h4 className="font-bold text-sm text-gray-700">
-            {dimension.name}
-          </h4>
-          {chineseName && (
-            <p className="text-xs text-gray-400 mt-0.5">{chineseName}</p>
+        <div className="flex items-center gap-3">
+          <div>
+            <h4 className="font-bold text-sm text-gray-700">
+              {dimension.name}
+            </h4>
+            {chineseName && (
+              <p className="text-xs text-gray-400 mt-0.5">{chineseName}</p>
+            )}
+          </div>
+          {showOptimizationBtn && (
+            <button
+              onClick={onOptimizationClick}
+              className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded hover:bg-amber-100 transition-colors"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+              优化建议
+            </button>
           )}
         </div>
         <span

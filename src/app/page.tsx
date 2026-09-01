@@ -7,6 +7,7 @@ import { CodeSuggestionCard } from '@/components/code-suggestion-card';
 import { DimensionDetail } from '@/components/dimension-detail';
 import { ScoreGauge } from '@/components/score-gauge';
 import { CodeOptimizer } from '@/components/code-optimizer';
+import { OptimizationModal } from '@/components/optimization-modal';
 import { analyzeHTMLCode } from '@/lib/code-optimizer';
 import { exportToPdf } from '@/lib/pdf-export';
 import type { AnalysisResult } from '@/types/geo';
@@ -44,6 +45,8 @@ export default function Home() {
   const [result, setResult] = useState<AnalyzeResponse | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('technical');
   const [exporting, setExporting] = useState(false);
+  const [showOptModal, setShowOptModal] = useState(false);
+  const [optItems, setOptItems] = useState<{ source: string; optimized: string; reason: string }[]>([]);
 
   // Optimize mode state
   const [htmlCode, setHtmlCode] = useState('');
@@ -540,6 +543,7 @@ export default function Home() {
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {currentCategory.dimensions.map((dim) => {
                       const cnMap = activeTab === 'technical' ? TECHNICAL_DIMENSIONS_CN : CONTENT_DIMENSIONS_CN;
+                      const isComparisonContext = dim.name === 'Comparison Context';
                       return (
                         <DimensionDetail
                           key={dim.name}
@@ -548,6 +552,17 @@ export default function Home() {
                             activeTab === 'technical' ? 'cyan' : 'orange'
                           }
                           chineseName={cnMap[dim.name]}
+                          showOptimizationBtn={isComparisonContext && dim.score < 80}
+                          onOptimizationClick={() => {
+                            // Generate optimization items from the dimension's issues and suggestions
+                            const items = dim.issues.map((issue, i) => ({
+                              source: issue,
+                              optimized: dim.suggestions[i] || issue,
+                              reason: `问题 ${i + 1}：${issue}`,
+                            }));
+                            setOptItems(items);
+                            setShowOptModal(true);
+                          }}
                         />
                       );
                     })}
@@ -828,6 +843,13 @@ export default function Home() {
           GEO Analyzer - Generative Engine Optimization 工具
         </div>
       </footer>
+
+      {/* Optimization Modal */}
+      <OptimizationModal
+        isOpen={showOptModal}
+        onClose={() => setShowOptModal(false)}
+        items={optItems}
+      />
     </div>
   );
 }
