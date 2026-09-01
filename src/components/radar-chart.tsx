@@ -52,7 +52,7 @@ const richLabelPlugin = {
 
     for (let i = 0; i < angleCount; i++) {
       const angle = i * angleStep - Math.PI / 2;
-      const distance = rScale.drawingArea + padding + fontSize * 2;
+      const distance = rScale.drawingArea + padding + 10 + fontSize * 2;
       const x = rScale.xCenter + Math.cos(angle) * distance;
       const y = rScale.yCenter + Math.sin(angle) * distance;
 
@@ -65,7 +65,7 @@ const richLabelPlugin = {
       // 绘制英文（加粗深色）
       ctx.font = `bold ${fontSize}px Inter, sans-serif`;
       ctx.fillStyle = 'rgba(31, 41, 55, 0.9)';
-      ctx.fillText(enText, x, y - fontSize * 0.4);
+      ctx.fillText(enText, x, y - fontSize * 0.8);
 
       // 绘制中文（小字灰色）
       if (cnText) {
@@ -159,10 +159,10 @@ export function RadarChart({ title, datasets, dimensions, dimensionLabels }: Rad
     },
     layout: {
       padding: {
-        top: 10,
-        bottom: 30,
-        left: 30,
-        right: 30,
+        top: 40,
+        bottom: 40,
+        left: 40,
+        right: 40,
       },
     },
     plugins: {
@@ -172,7 +172,7 @@ export function RadarChart({ title, datasets, dimensions, dimensionLabels }: Rad
         labels: {
           color: 'rgba(0, 0, 0, 0.7)',
           font: { size: 12, family: 'Inter, sans-serif' },
-          padding: 12,
+          padding: 20,
           usePointStyle: true,
           pointStyle: 'circle',
           boxWidth: 8,
