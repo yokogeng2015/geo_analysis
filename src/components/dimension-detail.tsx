@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 interface DimensionDetailProps {
   dimension: DimensionScore;
   accentColor: 'cyan' | 'orange';
+  chineseName?: string;
 }
 
 function getScoreColor(score: number): string {
@@ -23,6 +24,7 @@ function getScoreBg(score: number): string {
 export function DimensionDetail({
   dimension,
   accentColor,
+  chineseName,
 }: DimensionDetailProps) {
   const accentText =
     accentColor === 'cyan' ? 'text-sky-600' : 'text-amber-600';
@@ -30,9 +32,14 @@ export function DimensionDetail({
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
       <div className="flex items-center justify-between mb-3">
-        <h4 className={cn('font-semibold text-sm', accentText)}>
-          {dimension.name}
-        </h4>
+        <div>
+          <h4 className={cn('font-semibold text-sm', accentText)}>
+            {dimension.name}
+          </h4>
+          {chineseName && (
+            <p className="text-xs text-gray-400 mt-0.5">{chineseName}</p>
+          )}
+        </div>
         <span
           className={cn(
             'text-lg font-bold tabular-nums',

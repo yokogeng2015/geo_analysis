@@ -33,6 +33,7 @@ interface RadarChartProps {
   title: string;
   datasets: RadarDataset[];
   dimensions: string[];
+  dimensionLabels?: string[];
 }
 
 const COLORS = [
@@ -63,9 +64,9 @@ const COLORS = [
   },
 ];
 
-export function RadarChart({ title, datasets, dimensions }: RadarChartProps) {
+export function RadarChart({ title, datasets, dimensions, dimensionLabels }: RadarChartProps) {
   const chartData = {
-    labels: dimensions,
+    labels: dimensionLabels || dimensions,
     datasets: datasets.map((ds, i) => {
       const color = COLORS[i % COLORS.length];
       return {

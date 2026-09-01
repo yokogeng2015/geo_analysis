@@ -10,7 +10,7 @@ import { CodeOptimizer } from '@/components/code-optimizer';
 import { analyzeHTMLCode } from '@/lib/code-optimizer';
 import { exportToPdf } from '@/lib/pdf-export';
 import type { AnalysisResult } from '@/types/geo';
-import { TECHNICAL_DIMENSIONS, CONTENT_DIMENSIONS } from '@/types/geo';
+import { TECHNICAL_DIMENSIONS, CONTENT_DIMENSIONS, TECHNICAL_DIMENSIONS_CN, CONTENT_DIMENSIONS_CN } from '@/types/geo';
 import { cn } from '@/lib/utils';
 
 type AppMode = 'analyze' | 'optimize';
@@ -474,76 +474,78 @@ export default function Home() {
                   />
                 </div>
 
-                {/* Comparison Radar Charts */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <div className="rounded-2xl border border-sky-200 bg-white p-6 shadow-sm">
-                    <div className="flex items-center gap-2 mb-4">
-                      <div className="w-2 h-2 rounded-full bg-sky-500" />
-                      <h3 className="text-sky-600 font-semibold">
-                        Technical GEO 对比
-                      </h3>
-                    </div>
-                    <RadarChart
-                      title="Technical GEO"
-                      datasets={radarDatasets}
-                      dimensions={[...TECHNICAL_DIMENSIONS]}
-                    />
-                  </div>
-                  <div className="rounded-2xl border border-amber-200 bg-white p-6 shadow-sm">
-                    <div className="flex items-center gap-2 mb-4">
-                      <div className="w-2 h-2 rounded-full bg-amber-500" />
-                      <h3 className="text-amber-600 font-semibold">
-                        Content GEO 对比
-                      </h3>
-                    </div>
-                    <RadarChart
-                      title="Content GEO"
-                      datasets={radarDatasets}
-                      dimensions={[...CONTENT_DIMENSIONS]}
-                    />
-                  </div>
-                </div>
-
-                {/* Tab navigation */}
-                <div>
-                  <div className="flex gap-1 p-1 bg-gray-100 rounded-xl w-fit">
+                {/* Tab navigation - above radar chart */}
+                <div className="flex justify-center">
+                  <div className="flex gap-1 p-1 bg-gray-100 rounded-xl">
                     <button
                       onClick={() => setActiveTab('technical')}
                       className={cn(
-                        'px-5 py-2.5 rounded-lg text-sm font-medium transition-all',
+                        'px-6 py-2.5 rounded-lg text-sm font-medium transition-all',
                         activeTab === 'technical'
                           ? 'bg-white text-sky-600 shadow-sm'
                           : 'text-gray-500 hover:text-gray-700'
                       )}
                     >
-                      Technical GEO 详情
+                      Technical GEO
                     </button>
                     <button
                       onClick={() => setActiveTab('content')}
                       className={cn(
-                        'px-5 py-2.5 rounded-lg text-sm font-medium transition-all',
+                        'px-6 py-2.5 rounded-lg text-sm font-medium transition-all',
                         activeTab === 'content'
                           ? 'bg-white text-amber-600 shadow-sm'
                           : 'text-gray-500 hover:text-gray-700'
                       )}
                     >
-                      Content GEO 详情
+                      Content GEO
                     </button>
                   </div>
                 </div>
 
+                {/* Single Radar Chart */}
+                <div className={cn(
+                  'rounded-2xl bg-white p-6 shadow-sm max-w-2xl mx-auto',
+                  activeTab === 'technical' ? 'border-2 border-sky-200' : 'border-2 border-amber-200'
+                )}>
+                  <RadarChart
+                    title={activeTab === 'technical' ? 'Technical GEO' : 'Content GEO'}
+                    datasets={radarDatasets}
+                    dimensions={dimensions}
+                    dimensionLabels={dimensions.map((d) => {
+                      const cnMap = activeTab === 'technical' ? TECHNICAL_DIMENSIONS_CN : CONTENT_DIMENSIONS_CN;
+                      return `${d}\n${cnMap[d] || ''}`;
+                    })}
+                  />
+                </div>
+
+                {/* Comparison info */}
+                {result.comparisons.length > 0 && (
+                  <div className="flex flex-wrap items-center justify-center gap-3">
+                    <span className="text-xs text-gray-400">对比站点：</span>
+                    {result.comparisons.map((comp, i) => (
+                      <span key={i} className="text-xs text-gray-600 bg-gray-100 px-3 py-1 rounded-full">
+                        {comp.title || comp.url.replace(/^https?:\/\//, '')}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
                 {/* Dimension details */}
                 {currentCategory && (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {currentCategory.dimensions.map((dim) => (
-                      <DimensionDetail
-                        key={dim.name}
-                        dimension={dim}
-                        accentColor={
-                          activeTab === 'technical' ? 'cyan' : 'orange'
-                        }
-                      />
-                    ))}
+                    {currentCategory.dimensions.map((dim) => {
+                      const cnMap = activeTab === 'technical' ? TECHNICAL_DIMENSIONS_CN : CONTENT_DIMENSIONS_CN;
+                      return (
+                        <DimensionDetail
+                          key={dim.name}
+                          dimension={dim}
+                          accentColor={
+                            activeTab === 'technical' ? 'cyan' : 'orange'
+                          }
+                          chineseName={cnMap[dim.name]}
+                        />
+                      );
+                    })}
                   </div>
                 )}
 
@@ -582,6 +584,63 @@ export default function Home() {
                           }
                         />
                       ))}
+                    </div>
+                  </section>
+                )}
+
+                {/* Competitor references for dimensions where competitors do better */}
+                {activeTab === 'content' && result.comparisons.length > 0 && currentCategory && (
+                  <section>
+                    <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                      <svg className="w-5 h-5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                      </svg>
+                      竞品参考
+                      <span className="text-xs text-gray-400 font-normal ml-2">（得分高于主站的维度）</span>
+                    </h3>
+                    <div className="space-y-4">
+                      {currentCategory.dimensions.map((dim) => {
+                        // Find competitors that score higher on this dimension
+                        const betterCompetitors = result.comparisons
+                          .map((comp) => {
+                            const compDim = comp.contentGEO.dimensions.find((d) => d.name === dim.name);
+                            return { comp, compDim };
+                          })
+                          .filter(({ compDim }) => compDim && compDim.score > dim.score && compDim.score >= 60);
+
+                        if (betterCompetitors.length === 0) return null;
+
+                        const cnMap = CONTENT_DIMENSIONS_CN;
+                        return (
+                          <div key={dim.name} className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4">
+                            <div className="flex items-center gap-2 mb-3">
+                              <span className="text-sm font-semibold text-gray-900">{dim.name}</span>
+                              <span className="text-xs text-gray-400">{cnMap[dim.name]}</span>
+                              <span className="text-xs text-red-500 ml-auto">主站 {dim.score}分</span>
+                            </div>
+                            {betterCompetitors.map(({ comp, compDim }) => (
+                              <div key={comp.url} className="mb-3 last:mb-0">
+                                <div className="flex items-center gap-2 mb-1.5">
+                                  <span className="text-xs font-medium text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">
+                                    {comp.title || comp.url.replace(/^https?:\/\//, '')}
+                                  </span>
+                                  <span className="text-xs text-emerald-600">{compDim!.score}分</span>
+                                </div>
+                                {compDim!.suggestions.length > 0 && (
+                                  <ul className="space-y-1 ml-2">
+                                    {compDim!.suggestions.map((s, j) => (
+                                      <li key={j} className="text-xs text-gray-600 flex items-start gap-1.5">
+                                        <span className="text-emerald-500 mt-0.5">✓</span>
+                                        {s}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })}
                     </div>
                   </section>
                 )}
