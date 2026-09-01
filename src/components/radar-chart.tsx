@@ -61,29 +61,18 @@ const richLabelPlugin = {
       const enText = parts[0] || '';
       const cnText = parts[1] || '';
 
-      ctx.save();
-      ctx.translate(x, y);
-
-      // 根据角度调整文字方向，避免倒置
-      let rotation = angle + Math.PI / 2;
-      if (rotation > Math.PI / 2 && rotation < Math.PI * 1.5) {
-        rotation += Math.PI;
-      }
-      ctx.rotate(rotation);
-
+      // 保持水平，不旋转
       // 绘制英文（加粗深色）
       ctx.font = `bold ${fontSize}px Inter, sans-serif`;
       ctx.fillStyle = 'rgba(31, 41, 55, 0.9)';
-      ctx.fillText(enText, 0, -fontSize * 0.4);
+      ctx.fillText(enText, x, y - fontSize * 0.4);
 
       // 绘制中文（小字灰色）
       if (cnText) {
         ctx.font = `${fontSize * 0.85}px Inter, sans-serif`;
         ctx.fillStyle = 'rgba(107, 114, 128, 0.7)';
-        ctx.fillText(cnText, 0, fontSize * 0.6);
+        ctx.fillText(cnText, x, y + fontSize * 0.6);
       }
-
-      ctx.restore();
     }
 
     ctx.restore();
