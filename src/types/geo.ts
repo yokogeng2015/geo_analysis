@@ -3,6 +3,7 @@ export interface DimensionScore {
   score: number; // 0-100
   issues: string[];
   suggestions: string[];
+  contentSnippet?: string; // 1-2 lines of actual content from the page
 }
 
 export interface CodeSuggestion {

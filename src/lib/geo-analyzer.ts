@@ -701,11 +701,24 @@ function analyzeProductFacts(
     suggestions.push('产品事实信息充分');
   }
 
+  // Extract content snippet - find a paragraph with product specs
+  let contentSnippet = '';
+  const specParagraph = page.paragraphs.find(
+    (p) =>
+      /\d+[\s]*[%mgkMGK]|\d+\.\d+|\$\d+|specification|规格|参数/.test(p)
+  );
+  if (specParagraph) {
+    contentSnippet = specParagraph.length > 120
+      ? specParagraph.substring(0, 120) + '...'
+      : specParagraph;
+  }
+
   return {
     name: 'Product Facts',
     score: Math.max(0, score),
     issues,
     suggestions,
+    contentSnippet: contentSnippet || undefined,
   };
 }
 
@@ -770,11 +783,29 @@ function analyzeFeatureExplainability(
     suggestions.push('功能可解释性良好');
   }
 
+  // Extract content snippet - find a paragraph with feature description
+  let contentSnippet = '';
+  const featureParagraph = page.paragraphs.find(
+    (p) =>
+      p.length > 50 &&
+      (p.toLowerCase().includes('feature') ||
+        p.toLowerCase().includes('功能') ||
+        p.toLowerCase().includes('how to') ||
+        p.toLowerCase().includes('步骤') ||
+        /\d+[\.\)]\s/.test(p))
+  );
+  if (featureParagraph) {
+    contentSnippet = featureParagraph.length > 120
+      ? featureParagraph.substring(0, 120) + '...'
+      : featureParagraph;
+  }
+
   return {
     name: 'Feature Explainability',
     score: Math.max(0, score),
     issues,
     suggestions,
+    contentSnippet: contentSnippet || undefined,
   };
 }
 
@@ -831,11 +862,29 @@ function analyzeUserIntentQA(
     suggestions.push('用户意图覆盖良好');
   }
 
+  // Extract content snippet - use FAQ content or question headings
+  let contentSnippet = '';
+  if (page.faqContent.length > 0) {
+    const faq = page.faqContent[0];
+    contentSnippet = `${faq.question} ${faq.answer}`;
+    if (contentSnippet.length > 120) {
+      contentSnippet = contentSnippet.substring(0, 120) + '...';
+    }
+  } else {
+    const questionHeading = page.headings.find(
+      (h) => h.text.includes('?') || h.text.includes('？') || h.text.includes('如何')
+    );
+    if (questionHeading) {
+      contentSnippet = questionHeading.text;
+    }
+  }
+
   return {
     name: 'User Intent / Q&A',
     score: Math.max(0, score),
     issues,
     suggestions,
+    contentSnippet: contentSnippet || undefined,
   };
 }
 
@@ -901,11 +950,28 @@ function analyzeUseCases(
     suggestions.push('使用场景描述充分');
   }
 
+  // Extract content snippet - find a paragraph about use cases
+  let contentSnippet = '';
+  const useCaseParagraph = page.paragraphs.find(
+    (p) =>
+      p.toLowerCase().includes('use case') ||
+      p.toLowerCase().includes('场景') ||
+      p.toLowerCase().includes('example') ||
+      p.toLowerCase().includes('例如') ||
+      p.toLowerCase().includes('适合')
+  );
+  if (useCaseParagraph) {
+    contentSnippet = useCaseParagraph.length > 120
+      ? useCaseParagraph.substring(0, 120) + '...'
+      : useCaseParagraph;
+  }
+
   return {
     name: 'Use Cases',
     score: Math.max(0, score),
     issues,
     suggestions,
+    contentSnippet: contentSnippet || undefined,
   };
 }
 
@@ -964,11 +1030,28 @@ function analyzeComparisonContext(
     suggestions.push('对比上下文完善');
   }
 
+  // Extract content snippet - find a paragraph about comparisons
+  let contentSnippet = '';
+  const comparisonParagraph = page.paragraphs.find(
+    (p) =>
+      p.toLowerCase().includes('vs') ||
+      p.toLowerCase().includes('对比') ||
+      p.toLowerCase().includes('比较') ||
+      p.toLowerCase().includes('advantage') ||
+      p.toLowerCase().includes('优势')
+  );
+  if (comparisonParagraph) {
+    contentSnippet = comparisonParagraph.length > 120
+      ? comparisonParagraph.substring(0, 120) + '...'
+      : comparisonParagraph;
+  }
+
   return {
     name: 'Comparison Context',
     score: Math.max(0, score),
     issues,
     suggestions,
+    contentSnippet: contentSnippet || undefined,
   };
 }
 
@@ -1058,11 +1141,29 @@ function analyzeEvidenceTrust(
     suggestions.push('证据与信任信号完善');
   }
 
+  // Extract content snippet - find a paragraph with trust signals
+  let contentSnippet = '';
+  const trustParagraph = page.paragraphs.find(
+    (p) =>
+      p.toLowerCase().includes('review') ||
+      p.toLowerCase().includes('评价') ||
+      p.toLowerCase().includes('customer') ||
+      p.toLowerCase().includes('客户') ||
+      p.toLowerCase().includes('award') ||
+      p.toLowerCase().includes('认证')
+  );
+  if (trustParagraph) {
+    contentSnippet = trustParagraph.length > 120
+      ? trustParagraph.substring(0, 120) + '...'
+      : trustParagraph;
+  }
+
   return {
     name: 'Evidence & Trust',
     score: Math.max(0, score),
     issues,
     suggestions,
+    contentSnippet: contentSnippet || undefined,
   };
 }
 

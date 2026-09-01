@@ -666,15 +666,13 @@ export default function Home() {
                                         </ul>
                                       </div>
                                     )}
-                                    {/* AI readability insight */}
-                                    <div className="mt-2 text-xs text-gray-500 bg-white/60 rounded px-2 py-1.5 border border-gray-100">
-                                      <span className="font-medium text-gray-600"> AI 理解优势：</span>
-                                      {compDim!.score >= 90
-                                        ? ' 内容结构清晰、语义明确，AI 搜索引擎可直接引用生成答案，无需额外推断。'
-                                        : compDim!.score >= 80
-                                        ? ' 关键信息组织有序，AI 能准确提取核心事实并生成结构化回答。'
-                                        : ' 内容覆盖了用户可能关心的主要问题，AI 能从中找到足够的上下文来生成相关回答。'}
-                                    </div>
+                                    {/* Content snippet from competitor */}
+                                    {compDim!.contentSnippet && (
+                                      <div className="mt-2 text-xs text-gray-600 bg-white/60 rounded px-3 py-2 border border-gray-100">
+                                        <span className="font-medium text-gray-700"> 内容示例：</span>
+                                        <span className="text-gray-500 ml-1">{compDim!.contentSnippet}</span>
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
                               );
