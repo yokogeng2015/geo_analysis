@@ -39,11 +39,11 @@ export const TECHNICAL_DIMENSIONS = [
 
 export const TECHNICAL_DIMENSIONS_CN: Record<string, string> = {
   'Crawlability': '可爬取性',
-  'Content Accessibility': '内容可访问性',
-  'Semantic Structure': '语义结构',
-  'Entity & Schema': '实体与结构化数据',
-  'Internal Context': '内部上下文',
-  'Metadata & AI Signals': '元数据与 AI 信号',
+  'Content Accessibility': '内容可访问性(AA评分)',
+  'Semantic Structure': '语义结构(h1/h2/h3)',
+  'Entity & Schema': '实体与结构化数据(系列/型号/schema)',
+  'Internal Context': '内部页面关联(配件/推荐/对比/镜头)',
+  'Metadata & AI Signals': '元数据与 AI 信号(title/meta/alt)',
 };
 
 export const CONTENT_DIMENSIONS = [
@@ -56,10 +56,10 @@ export const CONTENT_DIMENSIONS = [
 ] as const;
 
 export const CONTENT_DIMENSIONS_CN: Record<string, string> = {
-  'Product Facts': '产品事实',
-  'Feature Explainability': '功能可解释性',
+  'Product Facts': '产品信息/准确性',
+  'Feature Explainability': '功能/卖点描述',
   'User Intent / Q&A': '用户意图 / 问答',
   'Use Cases': '使用场景',
-  'Comparison Context': '对比上下文',
-  'Evidence & Trust': '证据与信任',
+  'Comparison Context': '产品定位/对比/选择依据',
+  'Evidence & Trust': '数据/可信度/备注',
 };
