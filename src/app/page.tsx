@@ -13,6 +13,11 @@ import type { AnalysisResult } from '@/types/geo';
 import { TECHNICAL_DIMENSIONS, CONTENT_DIMENSIONS, TECHNICAL_DIMENSIONS_CN, CONTENT_DIMENSIONS_CN } from '@/types/geo';
 import { cn } from '@/lib/utils';
 
+function truncateText(text: string, maxLen: number): string {
+  if (text.length <= maxLen) return text;
+  return text.slice(0, maxLen) + '...';
+}
+
 type AppMode = 'analyze' | 'optimize';
 type TabType = 'technical' | 'content';
 
@@ -423,8 +428,8 @@ export default function Home() {
                     </svg>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h2 className="text-gray-900 font-semibold truncate">
-                      {result.main.title}
+                    <h2 className="text-gray-900 font-semibold truncate" title={result.main.title}>
+                      {truncateText(result.main.title, 20)}
                     </h2>
                     <p className="text-gray-500 text-sm truncate">{result.main.url}</p>
                   </div>
@@ -611,6 +616,7 @@ export default function Home() {
                         if (betterCompetitors.length === 0) return null;
 
                         const cnMap = CONTENT_DIMENSIONS_CN;
+                        const mainIssues = dim.issues;
                         return (
                           <div key={dim.name} className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4">
                             <div className="flex items-center gap-2 mb-3">
@@ -618,26 +624,61 @@ export default function Home() {
                               <span className="text-xs text-gray-400">{cnMap[dim.name]}</span>
                               <span className="text-xs text-red-500 ml-auto">主站 {dim.score}分</span>
                             </div>
-                            {betterCompetitors.map(({ comp, compDim }) => (
-                              <div key={comp.url} className="mb-3 last:mb-0">
-                                <div className="flex items-center gap-2 mb-1.5">
-                                  <span className="text-xs font-medium text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">
-                                    {comp.title || comp.url.replace(/^https?:\/\//, '')}
-                                  </span>
-                                  <span className="text-xs text-emerald-600">{compDim!.score}分</span>
+                            {betterCompetitors.map(({ comp, compDim }) => {
+                              const scoreDiff = compDim!.score - dim.score;
+                              return (
+                                <div key={comp.url} className="mb-3 last:mb-0">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <span className="text-xs font-medium text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">
+                                      {comp.title || comp.url.replace(/^https?:\/\//, '')}
+                                    </span>
+                                    <span className="text-xs text-emerald-600">{compDim!.score}分</span>
+                                    <span className="text-xs text-gray-400">（高出 {scoreDiff} 分）</span>
+                                  </div>
+                                  {/* Why competitor is better */}
+                                  <div className="ml-2 space-y-2">
+                                    <div className="text-xs text-gray-700">
+                                      <span className="font-medium text-emerald-700">✓ 做得好的地方：</span>
+                                    </div>
+                                    {compDim!.suggestions.length > 0 && (
+                                      <ul className="space-y-1 ml-3">
+                                        {compDim!.suggestions.map((s, j) => (
+                                          <li key={j} className="text-xs text-gray-600 flex items-start gap-1.5">
+                                            <span className="text-emerald-500 mt-0.5 shrink-0">•</span>
+                                            {s}
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    )}
+                                    {/* Contrast with main site issues */}
+                                    {mainIssues.length > 0 && (
+                                      <div className="mt-2">
+                                        <div className="text-xs text-gray-700">
+                                          <span className="font-medium text-red-500"> 主站不足：</span>
+                                        </div>
+                                        <ul className="space-y-1 ml-3 mt-1">
+                                          {mainIssues.slice(0, 3).map((issue, j) => (
+                                            <li key={j} className="text-xs text-gray-500 flex items-start gap-1.5">
+                                              <span className="text-red-400 mt-0.5 shrink-0">•</span>
+                                              {issue}
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      </div>
+                                    )}
+                                    {/* AI readability insight */}
+                                    <div className="mt-2 text-xs text-gray-500 bg-white/60 rounded px-2 py-1.5 border border-gray-100">
+                                      <span className="font-medium text-gray-600"> AI 理解优势：</span>
+                                      {compDim!.score >= 90
+                                        ? ' 内容结构清晰、语义明确，AI 搜索引擎可直接引用生成答案，无需额外推断。'
+                                        : compDim!.score >= 80
+                                        ? ' 关键信息组织有序，AI 能准确提取核心事实并生成结构化回答。'
+                                        : ' 内容覆盖了用户可能关心的主要问题，AI 能从中找到足够的上下文来生成相关回答。'}
+                                    </div>
+                                  </div>
                                 </div>
-                                {compDim!.suggestions.length > 0 && (
-                                  <ul className="space-y-1 ml-2">
-                                    {compDim!.suggestions.map((s, j) => (
-                                      <li key={j} className="text-xs text-gray-600 flex items-start gap-1.5">
-                                        <span className="text-emerald-500 mt-0.5">✓</span>
-                                        {s}
-                                      </li>
-                                    ))}
-                                  </ul>
-                                )}
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         );
                       })}

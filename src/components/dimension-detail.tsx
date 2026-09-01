@@ -33,7 +33,7 @@ export function DimensionDetail({
     <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
       <div className="flex items-center justify-between mb-3">
         <div>
-          <h4 className={cn('font-semibold text-sm', accentText)}>
+          <h4 className="font-bold text-sm text-gray-700">
             {dimension.name}
           </h4>
           {chineseName && (
