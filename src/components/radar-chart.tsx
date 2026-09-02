@@ -54,7 +54,7 @@ const richLabelPlugin = {
 
     for (let i = 0; i < angleCount; i++) {
       const angle = i * angleStep - Math.PI / 2;
-      const distance = rScale.drawingArea + 30;
+      const distance = rScale.drawingArea + 50;
       const x = rScale.xCenter + Math.cos(angle) * distance;
       const y = rScale.yCenter + Math.sin(angle) * distance;
 
@@ -163,10 +163,10 @@ export function RadarChart({ title, datasets, dimensions, dimensionLabels }: Rad
     },
     layout: {
       padding: {
-        top: 10,
-        bottom: 20,
-        left: 10,
-        right: 10,
+        top: 30,
+        bottom: 30,
+        left: 30,
+        right: 30,
       },
     },
     plugins: {
@@ -189,7 +189,7 @@ export function RadarChart({ title, datasets, dimensions, dimensionLabels }: Rad
         bodyColor: '#6b7280',
         borderColor: 'rgba(0,0,0,0.1)',
         borderWidth: 1,
-        padding: 12,
+        padding: 10,
         callbacks: {
           label: function (context: {
             dataset: { label?: string };
@@ -223,7 +223,8 @@ export function RadarChart({ title, datasets, dimensions, dimensionLabels }: Rad
           display: true,          // 👈 1. 改为 true！让 Chart.js 知道周围有文字需要留白
           color: 'transparent',   // 👈 2. 设为透明，避免原生文字显示出来
           font: { size: 12 },
-          padding: 0,
+          padding: 60,
+          callback: () => 'XXX',
         },
       },
     },
