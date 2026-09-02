@@ -1,11 +1,10 @@
 'use client';
 
 import { useState, useMemo, useCallback } from 'react';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import type { AltIssue, FAQIssue } from '@/lib/code-optimizer';
 import { generateFaqSchema } from '@/lib/code-optimizer';
 import { cn } from '@/lib/utils';
+import { AltIssueItem } from './alt-issue-item';
 
 interface CodeOptimizerProps {
   sourceCode: string;
@@ -221,58 +220,18 @@ export function CodeOptimizer({
                 暂无问题
               </div>
             ) : (
-              currentIssues.map((issue, i) => {
-                // Find the original index in altIssues
+              currentIssues.map((issue) => {
                 const originalIndex = altIssues.indexOf(issue);
                 return (
-                  <div key={originalIndex} className="px-5 py-3">
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <span className="text-xs text-gray-400 font-mono">行 {issue.line}</span>
-                      <span className={cn(
-                        'px-2 py-0.5 rounded text-[10px] font-medium',
-                        issue.type === 'missing' ? 'bg-red-100 text-red-700' :
-                        issue.type === 'empty' ? 'bg-amber-100 text-amber-700' :
-                        'bg-orange-100 text-orange-700'
-                      )}>
-                        {issue.type === 'missing' ? '缺少 alt' : issue.type === 'empty' ? 'alt 为空' : 'alt 无意义'}
-                      </span>
-                      {issue.reason && (
-                        <span className="text-xs text-red-500">{issue.reason}</span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 mb-2">
-                      {issue.src && (
-                        <button
-                          onClick={() => {
-                            const fullSrc = issue.src?.startsWith('http')
-                              ? issue.src
-                              : `${imageUrlPrefix}${issue.src}`;
-                            setPreviewSrc(fullSrc);
-                          }}
-                          className="text-xs text-sky-600 hover:text-sky-700 flex items-center gap-1"
-                        >
-                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                          </svg>
-                          预览图片
-                        </button>
-                      )}
-                      <code className="flex-1 text-xs text-gray-500 bg-gray-50 px-3 py-1.5 rounded font-mono truncate">
-                        {issue.original}
-                      </code>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-gray-400 text-xs">→</span>
-                      <input
-                        type="text"
-                        value={editedAlts[originalIndex] ?? issue.suggestion}
-                        onChange={(e) => handleAltEdit(originalIndex, e.target.value)}
-                        className="flex-1 text-sm px-3 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400/20"
-                        placeholder="输入 alt 描述..."
-                      />
-                    </div>
-                  </div>
+                  <AltIssueItem
+                    key={originalIndex}
+                    issue={issue}
+                    originalIndex={originalIndex}
+                    editedAlt={editedAlts[originalIndex]}
+                    imageUrlPrefix={imageUrlPrefix}
+                    onAltEdit={handleAltEdit}
+                    onPreview={setPreviewSrc}
+                  />
                 );
               })
             )}
@@ -399,21 +358,9 @@ export function CodeOptimizer({
             <span className="text-xs text-gray-400">{sourceCode.split('\n').length} 行</span>
           </div>
           <div className="overflow-auto max-h-[600px]">
-            <SyntaxHighlighter
-              language="html"
-              style={oneLight}
-              customStyle={{
-                margin: 0,
-                padding: '1rem',
-                background: '#ffffff',
-                fontSize: '0.8rem',
-                lineHeight: '1.6',
-              }}
-              wrapLongLines
-              showLineNumbers
-            >
-              {sourceCode}
-            </SyntaxHighlighter>
+            <pre className="p-4 text-sm font-mono text-gray-800 leading-relaxed whitespace-pre-wrap">
+              <code>{sourceCode}</code>
+            </pre>
           </div>
         </div>
 
@@ -424,22 +371,12 @@ export function CodeOptimizer({
             <span className="text-xs text-sky-500">{finalOptimizedCode.split('\n').length} 行</span>
           </div>
           <div className="overflow-auto max-h-[600px]">
-            <SyntaxHighlighter
-              language="html"
-              style={oneLight}
-              customStyle={{
-                margin: 0,
-                padding: '1rem',
-                background: '#f0f9ff',
-                fontSize: '0.8rem',
-                lineHeight: '1.6',
-                borderLeft: '3px solid #0ea5e9',
-              }}
-              wrapLongLines
-              showLineNumbers
+            <pre
+              className="p-4 text-sm font-mono text-gray-800 leading-relaxed whitespace-pre-wrap"
+              style={{ borderLeft: '3px solid #0ea5e9', background: '#f0f9ff' }}
             >
-              {finalOptimizedCode}
-            </SyntaxHighlighter>
+              <code>{finalOptimizedCode}</code>
+            </pre>
           </div>
         </div>
       </div>
