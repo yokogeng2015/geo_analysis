@@ -54,73 +54,73 @@ function labToRgb(l: number, a: number, b: number): { r: number; g: number; bl: 
 function sanitizeColors(element: HTMLElement): HTMLElement {
   const clone = element.cloneNode(true) as HTMLElement;
 
+  // More comprehensive regex to match lab(), oklch(), oklab(), color() functions
   const colorRegex = /(?:lab|oklch|oklab|color)\([^)]*\)/gi;
 
-  function replaceColorsInStyle(style: CSSStyleDeclaration): void {
-    const props = [
-      'color', 'backgroundColor', 'borderColor',
-      'borderTopColor', 'borderRightColor', 'borderBottomColor', 'borderLeftColor',
-      'outlineColor', 'textDecorationColor', 'boxShadow', 'textShadow',
-      'fill', 'stroke', 'stopColor', 'floodColor', 'lightingColor',
-    ];
-
-    for (const prop of props) {
-      const value = (style as unknown as Record<string, string>)[prop];
-      if (value && colorRegex.test(value)) {
-        colorRegex.lastIndex = 0;
-        const replaced = value.replace(colorRegex, (match) => {
-          // Parse lab(L a b) or lab(L% a b)
-          const labMatch = match.match(/lab\(\s*([\d.]+)%?\s+([\d.-]+)\s+([\d.-]+)\s*\)/i);
-          if (labMatch) {
-            const l = parseFloat(labMatch[1]);
-            const a = parseFloat(labMatch[2]);
-            const b = parseFloat(labMatch[3]);
-            const rgb = labToRgb(l, a, b);
-            return `rgb(${rgb.r}, ${rgb.g}, ${rgb.bl})`;
-          }
-          // Parse oklch(L C H)
-          const oklchMatch = match.match(/oklch\(\s*([\d.]+)%?\s+([\d.-]+)\s+([\d.-]+)\s*\)/i);
-          if (oklchMatch) {
-            // Simplified: just return a neutral gray as fallback
-            return 'rgb(128, 128, 128)';
-          }
-          return 'rgb(0, 0, 0)';
-        });
-        (style as unknown as Record<string, string>)[prop] = replaced;
-      }
+  function convertColorToRgb(match: string): string {
+    // Parse lab(L a b) or lab(L% a b)
+    const labMatch = match.match(/lab\(\s*([\d.]+)%?\s+([\d.-]+)\s+([\d.-]+)\s*\)/i);
+    if (labMatch) {
+      const l = parseFloat(labMatch[1]);
+      const a = parseFloat(labMatch[2]);
+      const b = parseFloat(labMatch[3]);
+      const rgb = labToRgb(l, a, b);
+      return `rgb(${rgb.r}, ${rgb.g}, ${rgb.bl})`;
     }
+    // Parse oklch(L C H)
+    const oklchMatch = match.match(/oklch\(\s*([\d.]+)%?\s+([\d.-]+)\s+([\d.-]+)\s*\)/i);
+    if (oklchMatch) {
+      // Simplified: just return a neutral gray as fallback
+      return 'rgb(128, 128, 128)';
+    }
+    // Parse oklab(L a b)
+    const oklabMatch = match.match(/oklab\(\s*([\d.]+)%?\s+([\d.-]+)\s+([\d.-]+)\s*\)/i);
+    if (oklabMatch) {
+      // Simplified: just return a neutral gray as fallback
+      return 'rgb(128, 128, 128)';
+    }
+    return 'rgb(0, 0, 0)';
+  }
+
+  function replaceColorsInValue(value: string): string {
+    if (!value) return value;
+    // Reset regex lastIndex for global regex
+    colorRegex.lastIndex = 0;
+    if (colorRegex.test(value)) {
+      colorRegex.lastIndex = 0;
+      return value.replace(colorRegex, convertColorToRgb);
+    }
+    return value;
   }
 
   function walk(el: HTMLElement): void {
-    replaceColorsInStyle(el.style);
-
-    // Also check computed style for inline-like colors
-    const computed = window.getComputedStyle(el);
-    const computedColor = computed.color;
-    const computedBg = computed.backgroundColor;
-
-    if (computedColor && colorRegex.test(computedColor)) {
-      colorRegex.lastIndex = 0;
-      el.style.color = computedColor.replace(colorRegex, (match) => {
-        const labMatch = match.match(/lab\(\s*([\d.]+)%?\s+([\d.-]+)\s+([\d.-]+)\s*\)/i);
-        if (labMatch) {
-          const rgb = labToRgb(parseFloat(labMatch[1]), parseFloat(labMatch[2]), parseFloat(labMatch[3]));
-          return `rgb(${rgb.r}, ${rgb.g}, ${rgb.bl})`;
+    // Replace colors in inline style
+    if (el.style) {
+      const styleProps = Array.from(el.style);
+      for (const prop of styleProps) {
+        const value = el.style.getPropertyValue(prop);
+        if (value && colorRegex.test(value)) {
+          el.style.setProperty(prop, replaceColorsInValue(value));
         }
-        return 'rgb(0, 0, 0)';
-      });
+      }
     }
 
-    if (computedBg && colorRegex.test(computedBg)) {
-      colorRegex.lastIndex = 0;
-      el.style.backgroundColor = computedBg.replace(colorRegex, (match) => {
-        const labMatch = match.match(/lab\(\s*([\d.]+)%?\s+([\d.-]+)\s+([\d.-]+)\s*\)/i);
-        if (labMatch) {
-          const rgb = labToRgb(parseFloat(labMatch[1]), parseFloat(labMatch[2]), parseFloat(labMatch[3]));
-          return `rgb(${rgb.r}, ${rgb.g}, ${rgb.bl})`;
-        }
-        return 'rgb(255, 255, 255)';
-      });
+    // Also check and replace in common style attributes
+    const computed = window.getComputedStyle(el);
+    const propsToCheck = [
+      'color', 'background-color', 'border-color',
+      'border-top-color', 'border-right-color', 'border-bottom-color', 'border-left-color',
+      'outline-color', 'text-decoration-color', 'box-shadow', 'text-shadow',
+      'fill', 'stroke', 'stop-color', 'flood-color', 'lighting-color',
+      'background', 'border', 'border-top', 'border-right', 'border-bottom', 'border-left',
+    ];
+
+    for (const prop of propsToCheck) {
+      const value = computed.getPropertyValue(prop);
+      if (value && colorRegex.test(value)) {
+        colorRegex.lastIndex = 0;
+        el.style.setProperty(prop, replaceColorsInValue(value));
+      }
     }
 
     for (const child of Array.from(el.children)) {
