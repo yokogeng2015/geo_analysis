@@ -42,7 +42,7 @@ const richLabelPlugin = {
     if (!labels) return;
 
     const pointLabels = rScale.options.pointLabels;
-    const fontSize = (pointLabels?.font as { size?: number })?.size || 11;
+    const fontSize = (pointLabels?.font as { size?: number })?.size || 12;
     const padding = typeof pointLabels?.padding === 'number' ? pointLabels.padding : 15;
 
     ctx.save();
@@ -54,7 +54,7 @@ const richLabelPlugin = {
 
     for (let i = 0; i < angleCount; i++) {
       const angle = i * angleStep - Math.PI / 2;
-      const distance = rScale.drawingArea + 10 + fontSize * 2;
+      const distance = rScale.drawingArea + 30;
       const x = rScale.xCenter + Math.cos(angle) * distance;
       const y = rScale.yCenter + Math.sin(angle) * distance;
 
@@ -80,19 +80,7 @@ const richLabelPlugin = {
   },
 };
 
-const legendMarginPlugin: Plugin<'radar'> = {
-  id: 'legendMargin',
-  beforeInit(chart) {
-    const legend = chart.legend;
-    if (!legend) return;
 
-    const originalFit = legend.fit;
-    legend.fit = function fit() {
-      originalFit.call(this);
-      this.height += 35;//高度是35
-    };
-  },
-};
 
 
 export interface RadarDataset {
@@ -175,10 +163,10 @@ export function RadarChart({ title, datasets, dimensions, dimensionLabels }: Rad
     },
     layout: {
       padding: {
-        top: 40,
-        bottom: 70,
-        left: 40,
-        right: 40,
+        top: 10,
+        bottom: 20,
+        left: 10,
+        right: 10,
       },
     },
     plugins: {
@@ -188,7 +176,7 @@ export function RadarChart({ title, datasets, dimensions, dimensionLabels }: Rad
         labels: {
           color: 'rgba(0, 0, 0, 0.7)',
           font: { size: 12, family: 'Inter, sans-serif' },
-          padding: 20,
+          padding: 10,
           usePointStyle: true,
           pointStyle: 'circle',
           boxWidth: 8,
@@ -222,7 +210,7 @@ export function RadarChart({ title, datasets, dimensions, dimensionLabels }: Rad
           stepSize: 20,
           color: 'rgba(0, 0, 0, 0.3)',
           backdropColor: 'transparent',
-          font: { size: 10 },
+          font: { size: 12 },
         },
         grid: {
           color: 'rgba(0, 0, 0, 0.06)',
@@ -232,11 +220,14 @@ export function RadarChart({ title, datasets, dimensions, dimensionLabels }: Rad
           color: 'rgba(0, 0, 0, 0.06)',
         },
         pointLabels: {
-          display: false,
+          display: true,          // 👈 1. 改为 true！让 Chart.js 知道周围有文字需要留白
+          color: 'transparent',   // 👈 2. 设为透明，避免原生文字显示出来
+          font: { size: 12 },
+          padding: 0,
         },
       },
     },
   };
 
-  return <Radar data={chartData} options={options} plugins={[richLabelPlugin, legendMarginPlugin]} />; 
+  return <Radar data={chartData} options={options} plugins={[richLabelPlugin]} />; 
 }
