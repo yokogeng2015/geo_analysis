@@ -9,6 +9,7 @@ import {
   Tooltip,
   Legend,
   type Chart,
+  type Plugin, // 👈 新增引入 Plugin
 } from 'chart.js';
 import { Radar } from 'react-chartjs-2';
 import type { DimensionScore } from '@/types/geo';
@@ -27,6 +28,7 @@ function truncateText(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text;
   return text.slice(0, maxLength) + '...';
 }
+
 
 // 自定义插件：绘制富文本维度标签（英文加粗 + 中文换行小字）
 const richLabelPlugin = {
@@ -52,7 +54,7 @@ const richLabelPlugin = {
 
     for (let i = 0; i < angleCount; i++) {
       const angle = i * angleStep - Math.PI / 2;
-      const distance = rScale.drawingArea + padding + 10 + fontSize * 2;
+      const distance = rScale.drawingArea + 10 + fontSize * 2;
       const x = rScale.xCenter + Math.cos(angle) * distance;
       const y = rScale.yCenter + Math.sin(angle) * distance;
 
@@ -74,10 +76,24 @@ const richLabelPlugin = {
         ctx.fillText(cnText, x, y + fontSize * 0.6);
       }
     }
-
     ctx.restore();
   },
 };
+
+const legendMarginPlugin: Plugin<'radar'> = {
+  id: 'legendMargin',
+  beforeInit(chart) {
+    const legend = chart.legend;
+    if (!legend) return;
+
+    const originalFit = legend.fit;
+    legend.fit = function fit() {
+      originalFit.call(this);
+      this.height += 35;//高度是35
+    };
+  },
+};
+
 
 export interface RadarDataset {
   label: string;
@@ -160,7 +176,7 @@ export function RadarChart({ title, datasets, dimensions, dimensionLabels }: Rad
     layout: {
       padding: {
         top: 40,
-        bottom: 40,
+        bottom: 70,
         left: 40,
         right: 40,
       },
@@ -222,5 +238,5 @@ export function RadarChart({ title, datasets, dimensions, dimensionLabels }: Rad
     },
   };
 
-  return <Radar data={chartData} options={options} plugins={[richLabelPlugin]} />;
+  return <Radar data={chartData} options={options} plugins={[richLabelPlugin, legendMarginPlugin]} />; 
 }
