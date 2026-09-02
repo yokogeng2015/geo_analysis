@@ -38,6 +38,19 @@ export function CodeOptimizer({
     { q: '', a: '' },
   ]);
   const [showFaqForm, setShowFaqForm] = useState(false);
+  const [activeTab, setActiveTab] = useState<'sony' | 'other'>('sony');
+  const [previewSrc, setPreviewSrc] = useState<string | null>(null);
+
+  // Split alt issues into two tabs
+  const sonyIssues = useMemo(
+    () => altIssues.filter((issue) => issue.src?.includes('/content/dam/sonystyle/products/')),
+    [altIssues]
+  );
+  const otherIssues = useMemo(
+    () => altIssues.filter((issue) => !issue.src?.includes('/content/dam/sonystyle/products/')),
+    [altIssues]
+  );
+  const currentIssues = activeTab === 'sony' ? sonyIssues : otherIssues;
 
   // Build highlighted source with alt issues marked
   const highlightedSource = useMemo(() => {
@@ -134,7 +147,7 @@ export function CodeOptimizer({
         </div>
       </div>
 
-      {/* Alt issues list */}
+      {/* Alt issues list with tabs */}
       {altIssues.length > 0 && (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <div className="px-5 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
@@ -151,38 +164,122 @@ export function CodeOptimizer({
               一键应用所有修改
             </button>
           </div>
+
+          {/* Tabs */}
+          <div className="flex border-b border-gray-200">
+            <button
+              onClick={() => setActiveTab('sony')}
+              className={cn(
+                'flex-1 px-4 py-2.5 text-sm font-medium transition-colors',
+                activeTab === 'sony'
+                  ? 'text-sky-600 border-b-2 border-sky-500 bg-sky-50/50'
+                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+              )}
+            >
+              Sony 产品图 ({sonyIssues.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('other')}
+              className={cn(
+                'flex-1 px-4 py-2.5 text-sm font-medium transition-colors',
+                activeTab === 'other'
+                  ? 'text-sky-600 border-b-2 border-sky-500 bg-sky-50/50'
+                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+              )}
+            >
+              其它图片 ({otherIssues.length})
+            </button>
+          </div>
+
           <div className="divide-y divide-gray-100 max-h-[400px] overflow-y-auto">
-            {altIssues.map((issue, i) => (
-              <div key={i} className="px-5 py-3">
-                <div className="flex items-center gap-2 mb-1.5">
-                  <span className="text-xs text-gray-400 font-mono">行 {issue.line}</span>
-                  <span className={cn(
-                    'px-2 py-0.5 rounded text-[10px] font-medium',
-                    issue.type === 'missing' ? 'bg-red-100 text-red-700' :
-                    issue.type === 'empty' ? 'bg-amber-100 text-amber-700' :
-                    'bg-orange-100 text-orange-700'
-                  )}>
-                    {issue.type === 'missing' ? '缺少 alt' : issue.type === 'empty' ? 'alt 为空' : 'alt 无意义'}
-                  </span>
-                  {issue.reason && (
-                    <span className="text-xs text-red-500">{issue.reason}</span>
-                  )}
-                </div>
-                <div className="flex items-center gap-3">
-                  <code className="flex-1 text-xs text-gray-500 bg-gray-50 px-3 py-1.5 rounded font-mono truncate">
-                    {issue.original}
-                  </code>
-                  <span className="text-gray-400">→</span>
-                  <input
-                    type="text"
-                    value={editedAlts[i] ?? issue.suggestion}
-                    onChange={(e) => handleAltEdit(i, e.target.value)}
-                    className="flex-1 text-sm px-3 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400/20"
-                    placeholder="输入 alt 描述..."
-                  />
-                </div>
+            {currentIssues.length === 0 ? (
+              <div className="px-5 py-8 text-center text-gray-400 text-sm">
+                暂无问题
               </div>
-            ))}
+            ) : (
+              currentIssues.map((issue, i) => {
+                // Find the original index in altIssues
+                const originalIndex = altIssues.indexOf(issue);
+                return (
+                  <div key={originalIndex} className="px-5 py-3">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="text-xs text-gray-400 font-mono">行 {issue.line}</span>
+                      <span className={cn(
+                        'px-2 py-0.5 rounded text-[10px] font-medium',
+                        issue.type === 'missing' ? 'bg-red-100 text-red-700' :
+                        issue.type === 'empty' ? 'bg-amber-100 text-amber-700' :
+                        'bg-orange-100 text-orange-700'
+                      )}>
+                        {issue.type === 'missing' ? '缺少 alt' : issue.type === 'empty' ? 'alt 为空' : 'alt 无意义'}
+                      </span>
+                      {issue.reason && (
+                        <span className="text-xs text-red-500">{issue.reason}</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 mb-2">
+                      {issue.src && (
+                        <button
+                          onClick={() => setPreviewSrc(issue.src || null)}
+                          className="text-xs text-sky-600 hover:text-sky-700 flex items-center gap-1"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                          预览图片
+                        </button>
+                      )}
+                      <code className="flex-1 text-xs text-gray-500 bg-gray-50 px-3 py-1.5 rounded font-mono truncate">
+                        {issue.original}
+                      </code>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-gray-400 text-xs">→</span>
+                      <input
+                        type="text"
+                        value={editedAlts[originalIndex] ?? issue.suggestion}
+                        onChange={(e) => handleAltEdit(originalIndex, e.target.value)}
+                        className="flex-1 text-sm px-3 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400/20"
+                        placeholder="输入 alt 描述..."
+                      />
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Image preview modal */}
+      {previewSrc && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setPreviewSrc(null)}
+        >
+          <div className="bg-white rounded-xl max-w-4xl max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200">
+              <h3 className="font-semibold text-gray-900 text-sm">图片预览</h3>
+              <button
+                onClick={() => setPreviewSrc(null)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-5">
+              <img
+                src={previewSrc}
+                alt="Preview"
+                className="max-w-full h-auto rounded-lg"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect fill="%23f3f4f6" width="400" height="300"/><text fill="%239ca3af" x="50%" y="50%" text-anchor="middle" dy=".3em">图片加载失败</text></svg>';
+                }}
+              />
+              <p className="mt-3 text-xs text-gray-500 break-all">{previewSrc}</p>
+            </div>
           </div>
         </div>
       )}

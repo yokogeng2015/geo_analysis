@@ -4,6 +4,7 @@ export interface AltIssue {
   type: 'missing' | 'empty' | 'meaningless';
   suggestion: string;
   reason?: string;
+  src?: string; // Image source URL for preview
 }
 
 export interface FAQIssue {
@@ -144,6 +145,7 @@ export function analyzeHTMLCode(html: string): CodeAnalysisResult {
         original: imgMatch[0],
         type: 'missing',
         suggestion: suggestedAlt,
+        src: src || undefined,
       });
     } else {
       const altValue = altMatch[1];
@@ -171,6 +173,7 @@ export function analyzeHTMLCode(html: string): CodeAnalysisResult {
           original: imgMatch[0],
           type: altValue.trim() === '' ? 'empty' : 'meaningless',
           suggestion: suggestedAlt,
+          src: src || undefined,
         });
         // Store the reason for display
         (altIssues[altIssues.length - 1] as AltIssue & { reason?: string }).reason = reason;
