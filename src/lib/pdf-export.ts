@@ -16,44 +16,54 @@ export async function exportToPdfWithCharts(
     throw new Error('Container not found');
   }
 
-  // Use html-to-image which leverages browser's native SVG foreignObject rendering
-  // This completely bypasses the lab/oklch color parsing issues of html2canvas
-  const dataUrl = await toPng(container, {
-    quality: 1,
-    pixelRatio: 2,
-    backgroundColor: '#ffffff',
-    cacheBust: true,
-    style: {
-      // Ensure the container is fully visible for rendering
-      transform: 'none',
-    },
-  });
+  // Temporarily make the container visible for capture
+  const originalStyle = container.getAttribute('style') || '';
+  container.setAttribute('style', `${originalStyle}; opacity: 1 !important; visibility: visible !important; z-index: 10000 !important; position: fixed !important; top: 0 !important; left: 0 !important;`);
 
-  const pdf = new jsPDF('p', 'mm', 'a4');
+  // Wait for charts to render
+  await new Promise((resolve) => setTimeout(resolve, 500));
 
-  const imgWidth = 210;
-  const pageHeight = 297;
+  try {
+    // Use html-to-image which leverages browser's native SVG foreignObject rendering
+    const dataUrl = await toPng(container, {
+      quality: 1,
+      pixelRatio: 2,
+      backgroundColor: '#ffffff',
+      cacheBust: true,
+      style: {
+        transform: 'none',
+      },
+    });
 
-  // Get image dimensions to calculate height
-  const img = new Image();
-  img.src = dataUrl;
-  await new Promise<void>((resolve) => {
-    img.onload = () => resolve();
-  });
+    const pdf = new jsPDF('p', 'mm', 'a4');
 
-  const imgHeight = (img.height * imgWidth) / img.width;
-  let heightLeft = imgHeight;
-  let position = 0;
+    const imgWidth = 210;
+    const pageHeight = 297;
 
-  pdf.addImage(dataUrl, 'PNG', 0, position, imgWidth, imgHeight);
-  heightLeft -= pageHeight;
+    // Get image dimensions to calculate height
+    const img = new Image();
+    img.src = dataUrl;
+    await new Promise<void>((resolve) => {
+      img.onload = () => resolve();
+    });
 
-  while (heightLeft >= 0) {
-    position = heightLeft - imgHeight;
-    pdf.addPage();
+    const imgHeight = (img.height * imgWidth) / img.width;
+    let heightLeft = imgHeight;
+    let position = 0;
+
     pdf.addImage(dataUrl, 'PNG', 0, position, imgWidth, imgHeight);
     heightLeft -= pageHeight;
-  }
 
-  pdf.save(filename);
+    while (heightLeft >= 0) {
+      position = heightLeft - imgHeight;
+      pdf.addPage();
+      pdf.addImage(dataUrl, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+    }
+
+    pdf.save(filename);
+  } finally {
+    // Restore original styles
+    container.setAttribute('style', originalStyle);
+  }
 }

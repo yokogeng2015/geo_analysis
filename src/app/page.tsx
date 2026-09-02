@@ -921,7 +921,7 @@ export default function Home() {
       {result && (
         <div
           className="fixed top-0 left-0 w-[210mm] bg-white"
-          style={{ opacity: 0, pointerEvents: 'none', zIndex: -1 }}
+          style={{ visibility: 'hidden', pointerEvents: 'none', zIndex: -1 }}
           id="pdf-charts-container"
         >
           <PdfLayout
