@@ -126,8 +126,10 @@ const COLORS = [
   },
 ];
 
-export const RadarChart = forwardRef<any, RadarChartProps>(({ title, datasets, dimensions, dimensionLabels }, ref) => {
-  // 截断图例标签到 20 个字符
+export const RadarChart = forwardRef<any, RadarChartProps>(
+  ({ title, datasets, dimensions, dimensionLabels }, ref) => {
+  
+    // 截断图例标签到 20 个字符
   const truncatedDatasets = datasets.map((ds) => ({
     ...ds,
     label: truncateText(ds.label, 20),
@@ -230,7 +232,8 @@ export const RadarChart = forwardRef<any, RadarChartProps>(({ title, datasets, d
     },
   };
 
-  return <Radar ref={ref} data={chartData} options={options} plugins={[richLabelPlugin]} />; 
+  return <Radar ref={ref as any} data={chartData} options={options} plugins={[richLabelPlugin]} />;
+  
 });
 
 RadarChart.displayName = 'RadarChart';

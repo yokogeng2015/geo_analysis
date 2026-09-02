@@ -1,7 +1,6 @@
 'use client';
 
 import type { DimensionScore } from '@/types/geo';
-import { cn } from '@/lib/utils';
 
 interface DimensionDetailProps {
   dimension: DimensionScore;
@@ -11,44 +10,55 @@ interface DimensionDetailProps {
   onOptimizationClick?: () => void;
 }
 
+// 1. 改为返回 HEX 十六进制颜色，避免生成 lab/oklch
 function getScoreColor(score: number): string {
-  if (score >= 80) return 'text-emerald-600';
-  if (score >= 60) return 'text-amber-600';
-  return 'text-red-600';
+  if (score >= 80) return '#059669'; // emerald-600
+  if (score >= 60) return '#d97706'; // amber-600
+  return '#dc2626'; // red-600
 }
 
 function getScoreBg(score: number): string {
-  if (score >= 80) return 'bg-emerald-500';
-  if (score >= 60) return 'bg-amber-500';
-  return 'bg-red-500';
+  if (score >= 80) return '#10b981'; // emerald-500
+  if (score >= 60) return '#f59e0b'; // amber-500
+  return '#ef4444'; // red-500
 }
 
 export function DimensionDetail({
   dimension,
-  accentColor,
   chineseName,
   showOptimizationBtn,
   onOptimizationClick,
 }: DimensionDetailProps) {
-  const accentText =
-    accentColor === 'cyan' ? 'text-sky-600' : 'text-amber-600';
-
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+    <div
+      className="rounded-lg p-4"
+      style={{
+        backgroundColor: '#ffffff',
+        border: '1px solid #e5e7eb',
+        boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+      }}
+    >
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-3">
           <div>
-            <h4 className="font-bold text-sm text-gray-700">
+            <h4 className="font-bold text-sm" style={{ color: '#374151' }}>
               {dimension.name}
             </h4>
             {chineseName && (
-              <p className="text-xs text-gray-400 mt-0.5">{chineseName}</p>
+              <p className="text-xs mt-0.5" style={{ color: '#9ca3af' }}>
+                {chineseName}
+              </p>
             )}
           </div>
           {showOptimizationBtn && (
             <button
               onClick={onOptimizationClick}
-              className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded hover:bg-amber-100 transition-colors"
+              className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded transition-colors"
+              style={{
+                color: '#b45309',
+                backgroundColor: '#fffbeb',
+                border: '1px solid #fde68a',
+              }}
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
@@ -58,34 +68,37 @@ export function DimensionDetail({
           )}
         </div>
         <span
-          className={cn(
-            'text-lg font-bold tabular-nums',
-            getScoreColor(dimension.score)
-          )}
+          className="text-lg font-bold tabular-nums"
+          style={{ color: getScoreColor(dimension.score) }}
         >
           {dimension.score}
-          <span className="text-xs text-gray-400">/100</span>
+          <span className="text-xs" style={{ color: '#9ca3af' }}>
+            /100
+          </span>
         </span>
       </div>
 
       {/* Score bar */}
-      <div className="h-1.5 bg-gray-100 rounded-full mb-3 overflow-hidden">
+      <div className="h-1.5 rounded-full mb-3 overflow-hidden" style={{ backgroundColor: '#f3f4f6' }}>
         <div
-          className={cn('h-full rounded-full transition-all duration-1000', getScoreBg(dimension.score))}
-          style={{ width: `${dimension.score}%` }}
+          className="h-full rounded-full transition-all duration-1000"
+          style={{
+            width: `${dimension.score}%`,
+            backgroundColor: getScoreBg(dimension.score),
+          }}
         />
       </div>
 
       {/* Issues */}
       {dimension.issues.length > 0 && (
         <div className="mb-3">
-          <p className="text-xs text-gray-400 uppercase tracking-wider mb-1.5">
+          <p className="text-xs uppercase tracking-wider mb-1.5" style={{ color: '#9ca3af' }}>
             发现的问题
           </p>
           <ul className="space-y-1.5">
             {dimension.issues.map((issue, i) => (
-              <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
-                <span className="text-red-500 mt-0.5 shrink-0">
+              <li key={i} className="flex items-start gap-2 text-sm" style={{ color: '#374151' }}>
+                <span className="mt-0.5 shrink-0" style={{ color: '#ef4444' }}>
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
@@ -100,13 +113,13 @@ export function DimensionDetail({
       {/* Suggestions */}
       {dimension.suggestions.length > 0 && (
         <div>
-          <p className="text-xs text-gray-400 uppercase tracking-wider mb-1.5">
+          <p className="text-xs uppercase tracking-wider mb-1.5" style={{ color: '#9ca3af' }}>
             优化建议
           </p>
           <ul className="space-y-1.5">
             {dimension.suggestions.map((suggestion, i) => (
-              <li key={i} className="flex items-start gap-2 text-sm text-gray-600">
-                <span className="text-emerald-500 mt-0.5 shrink-0">
+              <li key={i} className="flex items-start gap-2 text-sm" style={{ color: '#4b5563' }}>
+                <span className="mt-0.5 shrink-0" style={{ color: '#10b981' }}>
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
