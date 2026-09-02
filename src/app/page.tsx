@@ -174,7 +174,7 @@ export default function Home() {
     try {
       const domain = result.main.url.replace(/^https?:\/\//, '').replace(/\//g, '_');
       await exportToPdfWithCharts(
-        'geo-report',
+        'pdf-charts-container',
         `GEO分析报告_${domain}.pdf`,
         technicalChartRef.current,
         contentChartRef.current
