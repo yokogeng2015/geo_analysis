@@ -9,7 +9,7 @@ import { ScoreGauge } from '@/components/score-gauge';
 import { CodeOptimizer } from '@/components/code-optimizer';
 import { OptimizationModal } from '@/components/optimization-modal';
 import { analyzeHTMLCode } from '@/lib/code-optimizer';
-import { exportToPdf } from '@/lib/pdf-export';
+import { exportAsImage } from '@/lib/pdf-export';
 import type { AnalysisResult } from '@/types/geo';
 import { TECHNICAL_DIMENSIONS, CONTENT_DIMENSIONS, TECHNICAL_DIMENSIONS_CN, CONTENT_DIMENSIONS_CN } from '@/types/geo';
 import { cn } from '@/lib/utils';
@@ -168,7 +168,7 @@ export default function Home() {
     setExporting(true);
     try {
       const domain = result.main.url.replace(/^https?:\/\//, '').replace(/\//g, '_');
-      await exportToPdf('geo-report', `GEO分析报告_${domain}.pdf`);
+      await exportAsImage('geo-report', `GEO分析报告_${domain}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'PDF 导出失败');
     } finally {
@@ -501,7 +501,7 @@ export default function Home() {
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
-                        下载 PDF
+                        保存图片
                       </>
                     )}
                   </button>
