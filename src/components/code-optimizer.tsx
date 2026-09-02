@@ -19,6 +19,8 @@ interface CodeOptimizerProps {
     hasFaqSchema: boolean;
   };
   onCodeChange: (code: string) => void;
+  imageUrlPrefix?: string;
+  onImageUrlPrefixChange?: (prefix: string) => void;
 }
 
 interface EditedAlt {
@@ -32,6 +34,8 @@ export function CodeOptimizer({
   optimizedCode: initialOptimized,
   stats,
   onCodeChange,
+  imageUrlPrefix: externalPrefix,
+  onImageUrlPrefixChange,
 }: CodeOptimizerProps) {
   const [editedAlts, setEditedAlts] = useState<EditedAlt>({});
   const [faqQuestions, setFaqQuestions] = useState<{ q: string; a: string }[]>([
@@ -40,6 +44,10 @@ export function CodeOptimizer({
   const [showFaqForm, setShowFaqForm] = useState(false);
   const [activeTab, setActiveTab] = useState<'sony' | 'other'>('sony');
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
+  const [internalPrefix, setInternalPrefix] = useState('https://www.sonystyle.com.cn');
+
+  const imageUrlPrefix = externalPrefix ?? internalPrefix;
+  const setPrefix = onImageUrlPrefixChange ?? setInternalPrefix;
 
   // Split alt issues into two tabs
   const sonyIssues = useMemo(
@@ -191,6 +199,22 @@ export function CodeOptimizer({
             </button>
           </div>
 
+          {/* Image URL prefix input */}
+          <div className="px-5 py-3 border-b border-gray-100 bg-gray-50/50">
+            <label className="text-xs text-gray-600 font-medium mb-1.5 block">
+              图片 URL 前缀（用于预览）
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={imageUrlPrefix}
+                onChange={(e) => setPrefix(e.target.value)}
+                className="flex-1 text-sm px-3 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400/20 font-mono"
+                placeholder="https://www.sonystyle.com.cn"
+              />
+            </div>
+          </div>
+
           <div className="divide-y divide-gray-100 max-h-[400px] overflow-y-auto">
             {currentIssues.length === 0 ? (
               <div className="px-5 py-8 text-center text-gray-400 text-sm">
@@ -219,7 +243,12 @@ export function CodeOptimizer({
                     <div className="flex items-center gap-2 mb-2">
                       {issue.src && (
                         <button
-                          onClick={() => setPreviewSrc(issue.src || null)}
+                          onClick={() => {
+                            const fullSrc = issue.src?.startsWith('http')
+                              ? issue.src
+                              : `${imageUrlPrefix}${issue.src}`;
+                            setPreviewSrc(fullSrc);
+                          }}
                           className="text-xs text-sky-600 hover:text-sky-700 flex items-center gap-1"
                         >
                           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

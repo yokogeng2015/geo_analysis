@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { RadarChart } from '@/components/radar-chart';
 import type { RadarDataset } from '@/components/radar-chart';
 import { CodeSuggestionCard } from '@/components/code-suggestion-card';
@@ -52,6 +52,11 @@ export default function Home() {
   const [htmlCode, setHtmlCode] = useState('');
   const [codeResult, setCodeResult] = useState<ReturnType<typeof analyzeHTMLCode> | null>(null);
   const [optimizedCode, setOptimizedCode] = useState('');
+  const [analyzingProgress, setAnalyzingProgress] = useState(0);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  // Cache for code analysis results
+  const codeAnalysisCache = useMemo(() => new Map<string, ReturnType<typeof analyzeHTMLCode>>(), []);
 
   const addCompareUrl = () => {
     if (compareUrls.length < 4) {
@@ -115,10 +120,44 @@ export default function Home() {
       return;
     }
     setError('');
-    const analysis = analyzeHTMLCode(htmlCode);
-    setCodeResult(analysis);
-    setOptimizedCode(analysis.optimizedCode);
-  }, [htmlCode]);
+
+    // Check cache first
+    const cached = codeAnalysisCache.get(htmlCode);
+    if (cached) {
+      setCodeResult(cached);
+      setOptimizedCode(cached.optimizedCode);
+      return;
+    }
+
+    setIsAnalyzing(true);
+    setAnalyzingProgress(0);
+
+    // Simulate progress for better UX
+    const progressInterval = setInterval(() => {
+      setAnalyzingProgress((prev) => {
+        if (prev >= 90) {
+          clearInterval(progressInterval);
+          return 90;
+        }
+        return prev + 10;
+      });
+    }, 50);
+
+    // Use setTimeout to allow UI to update
+    setTimeout(() => {
+      const analysis = analyzeHTMLCode(htmlCode);
+      clearInterval(progressInterval);
+      setAnalyzingProgress(100);
+
+      // Cache the result
+      codeAnalysisCache.set(htmlCode, analysis);
+
+      setCodeResult(analysis);
+      setOptimizedCode(analysis.optimizedCode);
+      setIsAnalyzing(false);
+      setAnalyzingProgress(0);
+    }, 100);
+  }, [htmlCode, codeAnalysisCache]);
 
   const handleOptimizedCodeChange = useCallback((code: string) => {
     setOptimizedCode(code);
@@ -751,17 +790,33 @@ export default function Home() {
                 </p>
                 <button
                   onClick={handleCodeAnalyze}
-                  disabled={!htmlCode.trim()}
+                  disabled={!htmlCode.trim() || isAnalyzing}
                   className={cn(
                     'px-6 py-2.5 rounded-xl font-semibold text-sm transition-all',
-                    !htmlCode.trim()
+                    !htmlCode.trim() || isAnalyzing
                       ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
                       : 'bg-gradient-to-r from-sky-500 to-sky-400 text-white hover:shadow-lg hover:shadow-sky-500/25 active:scale-95'
                   )}
                 >
-                  分析并优化
+                  {isAnalyzing ? '分析中...' : '分析并优化'}
                 </button>
               </div>
+
+              {/* Progress bar */}
+              {isAnalyzing && (
+                <div className="mt-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs text-gray-600">正在解析 HTML 代码...</span>
+                    <span className="text-xs font-medium text-sky-600">{analyzingProgress}%</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-sky-500 to-sky-400 rounded-full transition-all duration-300 ease-out"
+                      style={{ width: `${analyzingProgress}%` }}
+                    />
+                  </div>
+                </div>
+              )}
             </section>
 
             {/* Code optimization results */}
@@ -773,6 +828,7 @@ export default function Home() {
                 optimizedCode={codeResult.optimizedCode}
                 stats={codeResult.stats}
                 onCodeChange={handleOptimizedCodeChange}
+                imageUrlPrefix="https://www.sonystyle.com.cn"
               />
             )}
 
