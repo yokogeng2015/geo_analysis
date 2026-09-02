@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 import { RadarChart } from '@/components/radar-chart';
 import type { RadarDataset } from '@/components/radar-chart';
 import { CodeSuggestionCard } from '@/components/code-suggestion-card';
@@ -9,7 +9,8 @@ import { ScoreGauge } from '@/components/score-gauge';
 import { CodeOptimizer } from '@/components/code-optimizer';
 import { OptimizationModal } from '@/components/optimization-modal';
 import { analyzeHTMLCode } from '@/lib/code-optimizer';
-import { exportToPdf } from '@/lib/pdf-export';
+import { exportToPdfWithCharts } from '@/lib/pdf-export';
+import { PdfLayout } from '@/components/pdf-layout';
 import type { AnalysisResult } from '@/types/geo';
 import { TECHNICAL_DIMENSIONS, CONTENT_DIMENSIONS, TECHNICAL_DIMENSIONS_CN, CONTENT_DIMENSIONS_CN } from '@/types/geo';
 import { cn } from '@/lib/utils';
@@ -163,12 +164,21 @@ export default function Home() {
     setOptimizedCode(code);
   }, []);
 
+  const technicalChartRef = useRef<any>(null);
+  const contentChartRef = useRef<any>(null);
+  const pdfLayoutRef = useRef<HTMLDivElement>(null);
+
   const handleExportPdf = useCallback(async () => {
     if (!result) return;
     setExporting(true);
     try {
       const domain = result.main.url.replace(/^https?:\/\//, '').replace(/\//g, '_');
-      await exportToPdf('geo-report', `GEO分析报告_${domain}.pdf`);
+      await exportToPdfWithCharts(
+        'geo-report',
+        `GEO分析报告_${domain}.pdf`,
+        technicalChartRef.current,
+        contentChartRef.current
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'PDF 导出失败');
     } finally {
@@ -906,6 +916,18 @@ export default function Home() {
         onClose={() => setShowOptModal(false)}
         items={optItems}
       />
+
+      {/* Off-screen PDF layout for export (charts + dimension details) */}
+      {result && (
+        <div className="fixed left-[-9999px] top-0" id="pdf-charts-container">
+          <PdfLayout
+            ref={pdfLayoutRef}
+            result={result}
+            technicalChartRef={technicalChartRef}
+            contentChartRef={contentChartRef}
+          />
+        </div>
+      )}
     </div>
   );
 }

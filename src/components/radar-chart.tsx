@@ -8,11 +8,11 @@ import {
   Filler,
   Tooltip,
   Legend,
-  type Chart,
   type Plugin, // 👈 新增引入 Plugin
 } from 'chart.js';
 import { Radar } from 'react-chartjs-2';
 import type { DimensionScore } from '@/types/geo';
+import { forwardRef } from 'react';
 
 ChartJS.register(
   RadialLinearScale,
@@ -33,7 +33,7 @@ function truncateText(text: string, maxLength: number): string {
 // 自定义插件：绘制富文本维度标签（英文加粗 + 中文换行小字）
 const richLabelPlugin = {
   id: 'richLabelPlugin',
-  afterDraw(chart: Chart) {
+  afterDraw(chart: ChartJS) {
     const { ctx, scales } = chart;
     const rScale = scales.r as RadialLinearScale;
     if (!rScale) return;
@@ -126,7 +126,7 @@ const COLORS = [
   },
 ];
 
-export function RadarChart({ title, datasets, dimensions, dimensionLabels }: RadarChartProps) {
+export const RadarChart = forwardRef<any, RadarChartProps>(({ title, datasets, dimensions, dimensionLabels }, ref) => {
   // 截断图例标签到 20 个字符
   const truncatedDatasets = datasets.map((ds) => ({
     ...ds,
@@ -230,5 +230,7 @@ export function RadarChart({ title, datasets, dimensions, dimensionLabels }: Rad
     },
   };
 
-  return <Radar data={chartData} options={options} plugins={[richLabelPlugin]} />; 
-}
+  return <Radar ref={ref} data={chartData} options={options} plugins={[richLabelPlugin]} />; 
+});
+
+RadarChart.displayName = 'RadarChart';

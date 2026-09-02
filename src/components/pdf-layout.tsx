@@ -10,6 +10,8 @@ import {
   type AnalysisResult,
   type DimensionScore,
 } from '@/types/geo';
+import type { Chart } from 'chart.js';
+import { forwardRef } from 'react';
 
 interface CompareResult {
   url: string;
@@ -23,9 +25,11 @@ interface PdfLayoutProps {
     main: AnalysisResult;
     comparisons: CompareResult[];
   };
+  technicalChartRef?: React.RefObject<Chart | null>;
+  contentChartRef?: React.RefObject<Chart | null>;
 }
 
-export function PdfLayout({ result }: PdfLayoutProps) {
+export const PdfLayout = forwardRef<HTMLDivElement, PdfLayoutProps>(({ result, technicalChartRef, contentChartRef }: PdfLayoutProps, ref) => {
   const { main, comparisons } = result;
 
   // Build datasets for Technical GEO radar chart
@@ -114,6 +118,7 @@ export function PdfLayout({ result }: PdfLayoutProps) {
         {/* Radar Chart */}
         <div className="rounded-2xl bg-white p-6 shadow-sm border-2 border-sky-200 mb-8">
           <RadarChart
+            ref={technicalChartRef}
             title="Technical GEO"
             datasets={technicalDatasets}
             dimensions={[...TECHNICAL_DIMENSIONS]}
@@ -144,6 +149,7 @@ export function PdfLayout({ result }: PdfLayoutProps) {
         {/* Radar Chart */}
         <div className="rounded-2xl bg-white p-6 shadow-sm border-2 border-amber-200 mb-8">
           <RadarChart
+            ref={contentChartRef}
             title="Content GEO"
             datasets={contentDatasets}
             dimensions={[...CONTENT_DIMENSIONS]}
@@ -165,4 +171,6 @@ export function PdfLayout({ result }: PdfLayoutProps) {
       </div>
     </div>
   );
-}
+});
+
+PdfLayout.displayName = 'PdfLayout';
