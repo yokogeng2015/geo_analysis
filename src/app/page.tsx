@@ -919,7 +919,11 @@ export default function Home() {
 
       {/* Off-screen PDF layout for export (charts + dimension details) */}
       {result && (
-        <div className="fixed left-[-9999px] top-0" id="pdf-charts-container">
+        <div
+          className="fixed top-0 left-0 w-[210mm] bg-white"
+          style={{ opacity: 0, pointerEvents: 'none', zIndex: -1 }}
+          id="pdf-charts-container"
+        >
           <PdfLayout
             ref={pdfLayoutRef}
             result={result}
