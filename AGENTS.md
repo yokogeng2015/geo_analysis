@@ -9,7 +9,7 @@ GEO Analyzer - Generative Engine Optimization 分析工具。从 Technical GEO �
 - **Language**: TypeScript 5
 - **UI**: shadcn/ui + Tailwind CSS 4
 - **Charts**: Chart.js + react-chartjs-2
-- **PDF**: jsPDF + html2canvas（onclone 修复 lab/oklch 颜色）
+- **PDF**: jsPDF + html-to-image（浏览器原生 SVG foreignObject 渲染，完美支持 oklch/lab）
 
 ## 目录结构
 ```
@@ -51,11 +51,11 @@ src/
 4. **雷达图可视化**: 使用 Chart.js 渲染两个雷达图（支持多站点对比叠加）
 5. **代码优化建议**: 使用 react-syntax-highlighter 展示优化代码，原始代码可折叠
 6. **代码优化模式**: 粘贴 HTML body，检测 alt 属性问题和 FAQ Schema 缺失
-7. **PDF 导出**: 使用 html2canvas onclone 修复 lab/oklch 颜色后导出完整报告
+7. **PDF 导出**: 使用 html-to-image（浏览器原生 SVG foreignObject 渲染）导出完整报告，完美支持 Tailwind v4 的 oklch/lab 颜色
 
 ## 注意事项
 - 分析引擎在 `src/lib/geo-analyzer.ts`，基于正则解析 HTML
 - 代码建议组件使用深色主题，优化代码有左侧彩色边框区分
 - 原始代码默认折叠，点击可展开
-- PDF 导出使用 `html2canvas` 的 `onclone` 回调在克隆 DOM 中将所有 `lab()`/`oklch()` 颜色转换为 `rgb()`，避免 jsPDF 解析错误
+- PDF 导出使用 `html-to-image`，基于浏览器原生 SVG `<foreignObject>` 渲染，无需手动处理 `lab()`/`oklch()` 颜色转换
 - 雷达图组件使用 `forwardRef` 暴露 Chart 实例，供 PDF 导出使用 `toBase64Image()`
