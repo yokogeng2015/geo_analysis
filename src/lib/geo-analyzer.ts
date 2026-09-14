@@ -2,6 +2,7 @@ import type {
   AnalysisResult,
   CategoryResult,
   CodeSuggestion,
+  ComparisonPoint,
   DimensionScore,
 } from '@/types/geo';
 
@@ -1609,11 +1610,8 @@ function generateCodeSuggestions(
 }
 
 export async function analyzeUrl(url: string): Promise<AnalysisResult> {
-  // Fetch the page
-  const html = await fetchPage(url);
-
-  // Parse the HTML
-  const page = parseHTML(html, url);
+  // Fetch the page (use cache to avoid duplicate fetches when comparing)
+  const page = await getParsedPage(url);
 
   // Analyze Technical GEO dimensions
   const technicalDimensions: DimensionScore[] = [
@@ -1673,4 +1671,470 @@ export async function analyzeUrl(url: string): Promise<AnalysisResult> {
     contentGEO: contentResult,
     analyzedAt: new Date().toISOString(),
   };
+}
+
+// ---------- 竞品内容对比分析 ----------
+
+// 判断文本是否为"广告宣传词"风格（低信息量修饰词）
+function isMarketingClaim(text: string): boolean {
+  const claimPatterns = [
+    /(超乎想象|卓越|极致|领先|臻|尊享|巅峰|非凡|出众|一流|顶级|殿堂级)/,
+    /(高分辨率锐利|惊艳|令人叹为观止|焕然一新|尽享|畅享|智享|悦享)/,
+    /(轻量化设计|时尚外观|美学设计|匠心)/,
+  ];
+  return claimPatterns.some((p) => p.test(text));
+}
+
+// 判断文本是否包含"场景 → 功能"链条（如"进入机场、火车站时，智能弹出提醒"）
+function hasScenarioFunction(text: string): boolean {
+  // 排除客服/售后/法律声明类噪音
+  if (/(客服|咨询|疑问|保修|退换|隐私|条款|侵权|备案|关注我们|公众号|cookie|版权)/i.test(text)) return false;
+  // 场景关键词 + 功能动词
+  const scenarioWords = /(在.{2,12}(时|中|下)|进入|当.{2,10}(时|后)|出行|通勤|会议|旅行|驾驶|开车|高铁|机场|火车站|地铁|户外|夜晚|运动|办公|居家|通话|视频|游戏|拍照|观影|导航|骑行|跑步|马拉松|训练|健身|滑雪|潜水|游泳|徒步|爬山|钓鱼|睡眠)/;
+  const functionWords = /(智能|自动|一键|即可|可以|支持|会|将|弹出|切换|启动|开启|连接|识别|提醒|建议|推荐|检测|监测|降噪|显示|播放|记录|定位|模式|体验|地图|摘要|计划|分析|管理)/;
+  return scenarioWords.test(text) && functionWords.test(text);
+}
+
+// 判断文本是否含量化数据
+function hasQuantData(text: string): boolean {
+  // x 倍率仅认可明确变焦语境（如"10x 变焦"），避免"手表 5X"类产品型号误判；中文页面倍率多用"倍"
+  return (
+    /\d+(\.\d+)?\s*(%|小时|分钟|倍|帧|nit|尼特|Hz|万|亿|mm|cm|kg|g|mA|mAh|dB|lux)/i.test(text) ||
+    /\d+x\s*(?:zoom|光学变焦|变焦)/i.test(text) ||
+    /\d+\.\d+\s*(英寸|寸|km|m\b)/i.test(text)
+  );
+}
+
+// 从段落列表中找出"场景化描述"例句（按信息密度排序，优先具体场景）
+// 拆句规则：仅按句末标点拆分（不做空白拆分，避免破坏"数字 中文"混排的完整句子）
+const splitSentences = (text: string): string[] =>
+  text
+    .split(/[。；;.!？?\n]/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+// 页脚/导航等噪音关键词（\d{6,} 过滤客服热线/序列号类数字）
+const FOOTER_NOISE = /(版权所有|关注我们|隐私政策|法律声明|网站地图|联系我们|备案号|选择国家|分享到|\d{6,})/;
+
+function findScenarioTexts(paragraphs: string[]): string[] {
+  const results: string[] = [];
+  const seenNorm = new Set<string>();
+  const concreteScene = /(机场|火车站|高铁|地铁|会议|驾驶|开车|跑步|健身|通勤|旅行|户外|夜晚|居家|办公室|咖啡馆|通话|视频会议|马拉松|滑雪|潜水|游泳|睡眠|训练|骑行)/;
+  // 排除实验室测试条件/规格脚注类文本（如"常亮显示场景测试模型：出厂默认配置..."）
+  const specFootnote = /(测试模型|出厂|默认配置|默认设置|实验室|手动关闭)/;
+  const candidates: { text: string; score: number }[] = [];
+  for (const raw of paragraphs) {
+    const p = cleanText(raw) || raw;
+    const sentences = splitSentences(p).filter((s) => s.length > 5);
+    for (const s of sentences) {
+      if (hasScenarioFunction(s) && s.length <= 80 && !FOOTER_NOISE.test(s) && !specFootnote.test(s)) {
+        const normKey = s.replace(/\s+/g, '');
+        if (seenNorm.has(normKey)) continue;
+        seenNorm.add(normKey);
+        // 具体场景词加分；信息密度高的短片段（如"户外探险模式"）加分
+        const score =
+          (concreteScene.test(s) ? 10 : 0) +
+          (s.length <= 16 ? 5 : 0) +
+          Math.max(0, 6 - Math.abs(s.length - 40) / 10);
+        candidates.push({ text: s, score });
+      }
+    }
+  }
+  candidates.sort((a, b) => b.score - a.score);
+  for (const c of candidates) {
+    results.push(c.text);
+    if (results.length >= 3) break;
+  }
+  return results;
+}
+
+// 从段落列表中找出"广告宣传词"例句
+function findMarketingTexts(paragraphs: string[]): string[] {
+  const results: string[] = [];
+  for (const raw of paragraphs) {
+    const p = cleanText(raw) || raw;
+    const sentences = splitSentences(p).filter((s) => s.length > 6 && s.length <= 60);
+    for (const s of sentences) {
+      if (isMarketingClaim(s) && !FOOTER_NOISE.test(s)) {
+        results.push(s);
+        if (results.length >= 3) return results;
+      }
+    }
+  }
+  return results;
+}
+
+// 从段落列表中找出含量化数据的句子
+function findQuantTexts(paragraphs: string[]): string[] {
+  const results: string[] = [];
+  // 按归一化文本去重（可见文本与内嵌 JSON 常有微小空格差异导致的重复）
+  const norm = (t: string) => t.replace(/\s+/g, '');
+  const seenNormalized = new Set<string>();
+  const dedupPush = (s: string) => {
+    const key = norm(s);
+    if (!key || seenNormalized.has(key)) return;
+    seenNormalized.add(key);
+    results.push(s);
+  };
+  for (const raw of paragraphs) {
+    const p = cleanText(raw) || raw;
+    // 收集所有量化句子，优先完整长句（短碎片排后）
+    const sentences = splitSentences(p).filter((s) => s.length > 8 && s.length <= 80);
+    for (const s of sentences) {
+      if (hasQuantData(s) && !FOOTER_NOISE.test(s)) {
+        dedupPush(s);
+      }
+    }
+  }
+  // 长句优先（完整句 > 片段）
+  return results.sort((a, b) => b.length - a.length).slice(0, 3);
+}
+
+// 从段落列表中找出"问题-解决方案"结构句子（痛点词 + 解决词）
+function findProblemSolutionTexts(paragraphs: string[]): string[] {
+  const results: string[] = [];
+  const painWords = /(痛点|困扰|问题|难点|痛点|痛点|为了解决|针对|告别|不再|无需|难以|担心)/;
+  const solutionWords = /(解决|方案|通过|使用|借助|只需|即可|一键|自动)/;
+  for (const raw of paragraphs) {
+    const p = cleanText(raw) || raw;
+    const sentences = splitSentences(p).filter((s) => s.length > 10 && s.length <= 80);
+    for (const s of sentences) {
+      if (painWords.test(s) && solutionWords.test(s) && !FOOTER_NOISE.test(s)) {
+        results.push(s);
+        if (results.length >= 2) return results;
+      }
+    }
+  }
+  return results;
+}
+
+function quoteList(texts: string[], max: number = 2): string {
+  return texts.slice(0, max).map((t) => `"${t}"`).join('、');
+}
+
+/**
+ * 清洗提取文本：解码 HTML 实体、过滤 URL/CSS/属性噪音。
+ */
+function cleanText(text: string): string {
+  // 解码常见 HTML 实体
+  const decoded = text
+    .replace(/&#34;|&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&#\d+;/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  // 过滤噪音：URL 片段、CSS 属性、残留属性值、纯数字/符号
+  if (
+    /\/{2,}|https?:|\.html?|\.css|\.js\b/.test(decoded) ||
+    /(width|height|margin|padding|border|font|color|background|position|display|flex|opacity|transform)\s*:/.test(decoded) ||
+    /^(jpg|png|gif|webp|svg|jpeg)/i.test(decoded) ||
+    /^[\d\s.,%\-+/\\|:：#*()（）「」【】\[\]]+$/.test(decoded)
+  ) {
+    return '';
+  }
+  return decoded;
+}
+
+/**
+ * 汇总页面上可用于内容对比的全部文本来源：
+ * 段落 + 列表项 + 表格单元格文本（specs 页面内容多在表格中）+ 标题 + 脚本 JSON 数据（JS 渲染型页面的内容载体）
+ */
+function collectContentTexts(page: ParsedPage): string[] {
+  const texts: string[] = [];
+  const push = (t: string) => {
+    const cleaned = cleanText(t);
+    if (cleaned.length > 10) texts.push(cleaned);
+  };
+  for (const p of page.paragraphs) push(p);
+  for (const li of page.lists) push(li);
+  // 从表格 HTML 中提取单元格文本
+  for (const tableHtml of page.tables) {
+    const cellRegex = /<(?:td|th)[^>]*>([\s\S]*?)<\/(?:td|th)>/gi;
+    let cellMatch;
+    while ((cellMatch = cellRegex.exec(tableHtml)) !== null) {
+      const cellText = cellMatch[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+      if (cellText.length > 10) push(cellText);
+    }
+  }
+  // 标题也纳入（H2/H3 常含场景化卖点句）
+  for (const h of page.headings) {
+    if (h.text && h.text.length > 10) push(h.text);
+  }
+  // 提取 HTML 内嵌 JSON 数据中的中文内容：
+  // JS 渲染型官网的内容常以转义 JSON 形式存放在 <script> 或 body 的 data 属性中（如华为官网）。
+  // 策略 A：直接从原始 HTML 的属性值（data-xxx="..."）中提取 JSON 中文，避免实体解码破坏标签边界
+  {
+    const seen = new Set(texts);
+    const addText = (val: string) => {
+      const cleaned = cleanText(val);
+      if (!cleaned || !/[\u4e00-\u9fa5]/.test(cleaned)) return;
+      // 片段阈值较低：JSON 内的场景/卖点短语常只有 5~10 字（如"户外探险模式"）
+      if (cleaned.length >= 5 && cleaned.length < 400 && !seen.has(cleaned)) {
+        seen.add(cleaned);
+        texts.push(cleaned);
+      }
+    };
+    const extractFromDecoded = (source: string) => {
+      const strRegex = /"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)'/g;
+      let strMatch;
+      while ((strMatch = strRegex.exec(source)) !== null) {
+        let val = strMatch[1] ?? strMatch[2] ?? '';
+        if (!val || !/[\u4e00-\u9fa5]/.test(val)) continue;
+        val = val
+          .replace(/\\n|\\r|\\t/g, '。')
+          .replace(/<br\s*\/?>/gi, '。')
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/<[^>]*$/, ' ')
+          .replace(/</g, ' ')
+          .replace(/\\u([\dA-Fa-f]{4})/g, (_, code) => String.fromCharCode(parseInt(code, 16)))
+          .replace(/\\"/g, '"');
+        if (/\/{2,}|https?:|\.svg|\.png|\.jpg|\.js\b|\.css/.test(val)) continue;
+        // 空格分隔的 JSON 短语需切分为独立片段（如"户外探险模式 进阶骑行体验"）
+        for (const frag of val.split(/[。\s]+/)) {
+          const f = frag.trim();
+          if (f.length >= 5) addText(f);
+          else if (/[\u4e00-\u9fa5]/.test(f) && f.length >= 4) addText(f);
+        }
+        addText(val.replace(/[。\s]+/g, '。'));
+        if (texts.length > 800) return;
+      }
+    };
+    // A1: 原始 HTML 中的属性值（tag 边界未被实体解码破坏）
+    const attrRegex = /[\w-]+\s*=\s*"([^"]*)"|[\w-]+\s*=\s*'([^']*)'/g;
+    let attrMatch;
+    while ((attrMatch = attrRegex.exec(page.html)) !== null) {
+      let attrVal = attrMatch[1] ?? attrMatch[2] ?? '';
+      if (!attrVal || !/[\u4e00-\u9fa5]/.test(attrVal)) continue;
+      // 在属性值内部解码实体与双层转义
+      let decodedVal = attrVal
+        .replace(/&#34;|&quot;/g, '"')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&amp;/g, '&');
+      for (let i = 0; i < 3 && /\\["n]/.test(decodedVal); i++) {
+        decodedVal = decodedVal.replace(/\\(["\\/])/g, '$1').replace(/\\n/g, '。');
+      }
+      extractFromDecoded(decodedVal);
+      if (texts.length > 800) break;
+    }
+    if (texts.length <= 800) {
+      // A2: <script> 块内的 JSON 字符串
+      const scriptRegex = /<script[^>]*>([\s\S]*?)<\/script>/gi;
+      let scriptMatch;
+      while ((scriptMatch = scriptRegex.exec(page.html)) !== null) {
+        const rawScript = scriptMatch[1];
+        if (!rawScript || rawScript.length < 100) continue;
+        let decodedScript = rawScript
+          .replace(/&#34;|&quot;/g, '"')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&amp;/g, '&');
+        for (let i = 0; i < 3 && /\\["n]/.test(decodedScript); i++) {
+          decodedScript = decodedScript.replace(/\\(["\\/])/g, '$1').replace(/\\n/g, '。');
+        }
+        extractFromDecoded(decodedScript);
+        if (texts.length > 800) break;
+      }
+    }
+    if (texts.length <= 800) {
+      // A3: 兜底 —— 全文实体解码后按句段提取（覆盖无引号包裹的正文 JSON）
+      let decodedHtml = page.html
+        .replace(/&#34;|&quot;/g, '"')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&amp;/g, '&');
+      for (let i = 0; i < 3 && /\\["n]/.test(decodedHtml); i++) {
+        decodedHtml = decodedHtml.replace(/\\(["\\/])/g, '$1').replace(/\\n/g, '。');
+      }
+      const bodyOnly = decodedHtml.replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ');
+      const flat = bodyOnly
+        .replace(/<(?:sup|sub)[^>]*>[^<]{0,30}<\/(?:sup|sub)>/gi, '')
+        .replace(/<br\s*\/?>/gi, '。')
+        .replace(/<(?![a-zA-Z\/!])/g, '\u0001') // 保护非标签开头的孤立 <，防止标签正则大段误吞
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\u0001/g, '<')
+        .replace(/\\u([\dA-Fa-f]{4})/g, (_, code) => String.fromCharCode(parseInt(code, 16)));
+      const plainText = flat.replace(/["'{}\[\]\\|,;]+/g, '。').replace(/\s+/g, ' ');
+      for (const seg of plainText.split('。')) {
+        const s = seg.trim();
+        if (s.length >= 5 && s.length < 400 && /[\u4e00-\u9fa5]/.test(s) && !/\/{2,}|https?:|\.(svg|png|jpg|js|css)\b/i.test(s) && !seen.has(s)) {
+          seen.add(s);
+          texts.push(s);
+        }
+        if (texts.length > 800) break;
+      }
+    }
+  }
+  return texts;
+}
+
+/**
+ * 对比主站与竞品页面，生成具体的竞品参考分析点。
+ * 只生成有实际内容依据的对比点，避免空洞结论。
+ */
+export function generateComparisonPoints(
+  main: ParsedPage,
+  competitor: ParsedPage
+): ComparisonPoint[] {
+  const points: ComparisonPoint[] = [];
+  const compName = competitor.title
+    ? competitor.title.replace(/[|\-–—_].*$/, '').trim().slice(0, 30)
+    : '竞品';
+
+  // 汇总双方全部文本来源（段落+列表+表格+标题）
+  const mainTexts = collectContentTexts(main);
+  const compTexts = collectContentTexts(competitor);
+
+  // ---- 1. 场景化描述（场景/任务 → 功能响应） ----
+  const compScenarios = findScenarioTexts(compTexts);
+  const mainScenarios = findScenarioTexts(mainTexts);
+  const mainMarketing = findMarketingTexts(mainTexts);
+
+  if (compScenarios.length > 0 && (mainScenarios.length < compScenarios.length || mainMarketing.length > 0)) {
+    points.push({
+      topic: '缺乏"场景/痛点 → 功能响应"的场景化叙事',
+      aiLogic:
+        'GEO 极其偏好"场景/痛点 → 解决方案 → 操作步骤"的文本结构，AI 能直接识别出【场景/任务】→【功能响应】的场景链条并用于回答"在 X 场景下应该怎么办"类提问。',
+      competitorText: quoteList(compScenarios),
+      competitorAnalysis:
+        '对方将功能直接绑定到具体使用场景中，AI 能够直接提取"场景 → 功能"链条，在用户询问相关场景时优先引用。',
+      mainText: mainMarketing.length > 0 ? quoteList(mainMarketing) : mainScenarios.length > 0 ? quoteList(mainScenarios) : undefined,
+      mainAnalysis:
+        mainMarketing.length > 0
+          ? '主站文本多为广告宣传词（Marketing Claims）。在 AI 的语义分析中，这类修饰词属于低信息量的无意图文本，不会被判定为有效场景。'
+          : '主站缺少"场景 + 功能"的绑定描述，AI 难以将其匹配到具体使用场景的提问。',
+    });
+  }
+
+  // ---- 2. 量化数据 ----
+  const compQuant = findQuantTexts(compTexts);
+  const mainQuant = findQuantTexts(mainTexts);
+
+  if (compQuant.length > 0 && mainQuant.length < compQuant.length) {
+    points.push({
+      topic: '量化数据不足，事实密度低于竞品',
+      aiLogic:
+        'AI 在生成回答时优先引用带具体数值的事实（如续航时长、峰值亮度、降噪深度）。无数字的形容词描述被视为不可验证信息，引用权重极低。',
+      competitorText: quoteList(compQuant),
+      competitorAnalysis:
+        '对方使用具体数值描述产品表现，属于"可验证事实"，AI 直接摘录进回答的概率显著更高。',
+      mainText: mainQuant.length > 0 ? quoteList(mainQuant) : undefined,
+      mainAnalysis:
+        mainQuant.length > 0
+          ? '主站虽有部分数据，但量化密度明显低于竞品，AI 引用时信息量不足。'
+          : '主站缺少量化数据，功能描述依赖形容词，AI 难以将其作为事实依据引用。',
+    });
+  }
+
+  // ---- 3. 问题-解决方案结构 ----
+  const compPS = findProblemSolutionTexts(compTexts);
+  const mainPS = findProblemSolutionTexts(mainTexts);
+
+  if (compPS.length > 0 && mainPS.length === 0) {
+    points.push({
+      topic: '缺乏"问题-解决方案（Problem-Solving）"的结构化叙事',
+      aiLogic:
+        'GEO 极其偏好"痛点 → 解决方案 → 操作步骤"的文本结构。AI 在回答"如何解决 X 问题"类提问时，会优先检索带痛点关键词的内容。',
+      competitorText: quoteList(compPS),
+      competitorAnalysis:
+        '对方文本明确写出用户痛点并给出对应解决方案，AI 可直接将其组织为"问题 → 方案"的答案片段。',
+      mainAnalysis:
+        '主站内容以功能罗列为主，未覆盖用户痛点表述，在"怎么办/如何解决"类提问中几乎不会被命中。',
+    });
+  }
+
+  // ---- 4. 广告词 vs 客观描述（仅当主站明显广告词多） ----
+  if (mainMarketing.length >= 2 && compScenarios.length > 0) {
+    const compDesc = compScenarios[0];
+    points.push({
+      topic: '宣传语式文案削弱 AI 可引用性',
+      aiLogic:
+        'AI 的语义分析会将"超乎想象""极致体验"类修饰词标记为低信息量的主观文本（Subjective Claims），这类内容不会出现在 AI 生成的推荐理由中。',
+      competitorText: `"${compDesc}"`,
+      competitorAnalysis:
+        '同样是在讲产品优势，对方用的是"可感知的具体行为描述"而非情绪化修饰，AI 可以原样摘录为推荐依据。',
+      mainText: quoteList(mainMarketing, 3),
+      mainAnalysis:
+        '主站大量使用情绪化修饰词堆砌卖点。建议改写为"具体场景 + 可验证效果"的客观句式。',
+    });
+  }
+
+  // ---- 5. FAQ / 问答结构 ----
+  if (competitor.faqContent.length > 0 && main.faqContent.length === 0) {
+    points.push({
+      topic: '缺少 FAQ 问答结构，错失 AI 直接引用入口',
+      aiLogic:
+        'FAQ（配合 FAQPage Schema）是 AI 引擎最高优先级的引用来源之一。带 Schema 的问答内容在 AI 生成回答中的引用权重远高于普通段落。',
+      competitorText: `"${competitor.faqContent[0].question}" → "${competitor.faqContent[0].answer.slice(0, 60)}..."`,
+      competitorAnalysis:
+        '对方以"用户原话提问 + 结构化回答"的形式组织内容，AI 可直接摘取整组问答作为回答素材。',
+      mainAnalysis:
+        '主站没有 FAQ 结构，用户高频问题只能从长段落中自行推断，AI 提取成本高、命中概率低。',
+    });
+  }
+
+  // ---- 6. 步骤化说明 ----
+  const compStepCount = competitor.lists.length;
+  const mainStepCount = main.lists.length;
+  if (compStepCount > mainStepCount * 2 && compStepCount >= 4) {
+    points.push({
+      topic: '步骤化/结构化内容不足',
+      aiLogic:
+        'AI 偏好以有序列表（步骤 1/2/3）组织操作类内容。列表结构让 AI 能够按条摘录，形成"步骤型答案"。',
+      competitorAnalysis: `对方页面包含 ${compStepCount} 组列表结构，操作说明被组织为可逐条引用的步骤链。`,
+      mainAnalysis: `主站仅有 ${mainStepCount} 组列表，操作说明以长段落呈现，AI 提取步骤时需要自行切分，容易丢失关键细节。`,
+    });
+  }
+
+  return points;
+}
+
+// 简单内存缓存，避免同一页面被重复抓取解析
+const pageCache = new Map<string, { page: ParsedPage; ts: number }>();
+const PAGE_CACHE_TTL = 5 * 60 * 1000; // 5 分钟
+
+async function getParsedPage(url: string): Promise<ParsedPage> {
+  const cached = pageCache.get(url);
+  if (cached && Date.now() - cached.ts < PAGE_CACHE_TTL) {
+    return cached.page;
+  }
+  const html = await fetchPage(url);
+  const page = parseHTML(html, url);
+  pageCache.set(url, { page, ts: Date.now() });
+  // 简单清理过期缓存
+  if (pageCache.size > 20) {
+    const now = Date.now();
+    for (const [k, v] of pageCache) {
+      if (now - v.ts > PAGE_CACHE_TTL) pageCache.delete(k);
+    }
+  }
+  return page;
+}
+
+/**
+ * 对比主站与多个竞品，返回每个竞品 URL 对应的具体对比分析点。
+ */
+export async function compareWithCompetitors(
+  mainUrl: string,
+  compareUrls: string[]
+): Promise<Record<string, ComparisonPoint[]>> {
+  const mainPage = await getParsedPage(mainUrl);
+  const results: Record<string, ComparisonPoint[]> = {};
+
+  await Promise.all(
+    compareUrls.map(async (url) => {
+      try {
+        const compPage = await getParsedPage(url);
+        results[url] = generateComparisonPoints(mainPage, compPage);
+      } catch {
+        results[url] = [];
+      }
+    })
+  );
+
+  return results;
 }

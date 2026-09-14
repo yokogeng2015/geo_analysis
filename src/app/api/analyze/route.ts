@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { analyzeUrl } from '@/lib/geo-analyzer';
+import { analyzeUrl, compareWithCompetitors } from '@/lib/geo-analyzer';
+import type { ComparisonPoint } from '@/types/geo';
 
 interface AnalyzeRequest {
   mainUrl: string;
@@ -74,9 +75,24 @@ export async function POST(request: NextRequest) {
         r.status === 'fulfilled'
     ).map((r) => r.value);
 
+    // 生成主站 vs 竞品的具体内容对比分析点（基于实际页面内容）
+    const successfulCompareUrls = compareResults.map((r) => r.url);
+    let comparisonPoints: Record<string, ComparisonPoint[]> = {};
+    if (successfulCompareUrls.length > 0) {
+      try {
+        comparisonPoints = await compareWithCompetitors(
+          validatedUrls[0],
+          successfulCompareUrls
+        );
+      } catch {
+        comparisonPoints = {};
+      }
+    }
+
     return NextResponse.json({
       main: mainResult.value,
       comparisons: compareResults,
+      comparisonPoints,
     });
   } catch (error) {
     const message =

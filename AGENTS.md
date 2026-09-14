@@ -51,10 +51,14 @@ src/
 4. **雷达图可视化**: 使用 Chart.js 渲染两个雷达图（支持多站点对比叠加）
 5. **代码优化建议**: 使用 react-syntax-highlighter 展示优化代码，原始代码可折叠
 6. **代码优化模式**: 粘贴 HTML body，检测 alt 属性问题和 FAQ Schema 缺失
-7. **PDF 导出**: 使用 html-to-image（浏览器原生 SVG foreignObject 渲染）导出完整报告，完美支持 Tailwind v4 的 oklch/lab 颜色
+7. **竞品对比分析**: 基于双方页面真实内容生成对比点（场景化叙事 / 量化数据 / 结构化步骤），引用具体原文并解释 AI 理解差异
+8. **PDF 导出**: 使用 html-to-image（浏览器原生 SVG foreignObject 渲染）导出完整报告，完美支持 Tailwind v4 的 oklch/lab 颜色
 
 ## 注意事项
 - 分析引擎在 `src/lib/geo-analyzer.ts`，基于正则解析 HTML
+- **文本提取（collectContentTexts）**：SPA 页面数据常藏在 script JSON 和标签属性（如华为的 `<input data-xxx="JSON">`）中，提取路径包括：可见段落/列表 → script 块 → 属性值 JSON → body JSON 兜底；处理时先解码实体（`&#34;`/`&lt;`）再反转义 `\"`，避免破坏标签边界
+- **引文清洗**：findScenarioTexts/findQuantTexts 通过 FOOTER_NOISE 过滤页脚/客服/备案噪声，按长度+信息密度评分排序，确保引用真实完整句子
+- 竞品对比点数据由 `generateComparisonPoints` 生成，API 返回 `comparisonPoints: Record<compUrl, ComparisonPoint[]>`
 - 代码建议组件使用深色主题，优化代码有左侧彩色边框区分
 - 原始代码默认折叠，点击可展开
 - PDF 导出使用 `html-to-image`，基于浏览器原生 SVG `<foreignObject>` 渲染，无需手动处理 `lab()`/`oklch()` 颜色转换

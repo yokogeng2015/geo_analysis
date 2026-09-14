@@ -6,6 +6,16 @@ export interface DimensionScore {
   contentSnippet?: string; // 1-2 lines of actual content from the page
 }
 
+// 竞品对比分析点：展示双方实际内容 + AI 提取逻辑说明
+export interface ComparisonPoint {
+  topic: string; // 对比主题，如"缺乏'问题-解决方案'的结构化叙事"
+  aiLogic: string; // AI 提取逻辑说明，如"GEO 极其偏好'场景/痛点 → 解决方案 → 操作步骤'的文本结构"
+  competitorText?: string; // 竞品实际内容引用（1-2 行）
+  competitorAnalysis?: string; // 为什么竞品的写法对 AI 更友好
+  mainText?: string; // 主站实际内容引用（1-2 行）
+  mainAnalysis?: string; // 为什么主站的写法对 AI 不友好
+}
+
 export interface CodeSuggestion {
   type: 'optimize' | 'add' | 'fix';
   title: string;

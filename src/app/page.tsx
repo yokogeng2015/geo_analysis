@@ -11,7 +11,7 @@ import { OptimizationModal } from '@/components/optimization-modal';
 import { analyzeHTMLCode } from '@/lib/code-optimizer';
 import { exportToPdfWithCharts } from '@/lib/pdf-export';
 import { PdfLayout } from '@/components/pdf-layout';
-import type { AnalysisResult } from '@/types/geo';
+import type { AnalysisResult, ComparisonPoint } from '@/types/geo';
 import { TECHNICAL_DIMENSIONS, CONTENT_DIMENSIONS, TECHNICAL_DIMENSIONS_CN, CONTENT_DIMENSIONS_CN } from '@/types/geo';
 import { cn } from '@/lib/utils';
 
@@ -33,6 +33,7 @@ interface CompareResult {
 interface AnalyzeResponse {
   main: AnalysisResult;
   comparisons: CompareResult[];
+  comparisonPoints?: Record<string, ComparisonPoint[]>;
 }
 
 export default function Home() {
@@ -657,96 +658,107 @@ export default function Home() {
                   </section>
                 )}
 
-                {/* Competitor references for dimensions where competitors do better */}
-                {activeTab === 'content' && result.comparisons.length > 0 && currentCategory && (
-                  <section>
-                    <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                      <svg className="w-5 h-5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                      </svg>
-                      竞品参考
-                      <span className="text-xs text-gray-400 font-normal ml-2">（得分高于主站的维度）</span>
-                    </h3>
-                    <div className="space-y-4">
-                      {currentCategory.dimensions.map((dim) => {
-                        // Find competitors that score higher on this dimension
-                        const betterCompetitors = result.comparisons
-                          .map((comp) => {
-                            const compDim = comp.contentGEO.dimensions.find((d) => d.name === dim.name);
-                            return { comp, compDim };
-                          })
-                          .filter(({ compDim }) => compDim && compDim.score > dim.score && compDim.score >= 60);
+                {/* Competitor references: specific content comparison points */}
+                {activeTab === 'content' && result.comparisons.length > 0 && (() => {
+                  // Collect all comparison points from all competitors
+                  const allPoints: { compName: string; compUrl: string; points: ComparisonPoint[] }[] =
+                    result.comparisons.map((comp) => ({
+                      compName: comp.title || comp.url.replace(/^https?:\/\//, ''),
+                      compUrl: comp.url,
+                      points: result.comparisonPoints?.[comp.url] || [],
+                    })).filter((c) => c.points.length > 0);
 
-                        if (betterCompetitors.length === 0) return null;
+                  if (allPoints.length === 0) return null;
 
-                        const cnMap = CONTENT_DIMENSIONS_CN;
-                        const mainIssues = dim.issues;
-                        return (
-                          <div key={dim.name} className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4">
+                  return (
+                    <section>
+                      <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                        <svg className="w-5 h-5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                        </svg>
+                        竞品参考
+                        <span className="text-xs text-gray-400 font-normal ml-2">（基于双方实际内容的逐点对比）</span>
+                      </h3>
+                      <div className="space-y-4">
+                        {allPoints.map(({ compName, points }) => (
+                          <div key={compName} className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-4">
                             <div className="flex items-center gap-2 mb-3">
-                              <span className="text-sm font-semibold text-gray-900">{dim.name}</span>
-                              <span className="text-xs text-gray-400">{cnMap[dim.name]}</span>
-                              <span className="text-xs text-red-500 ml-auto">主站 {dim.score}分</span>
+                              <span className="text-xs font-medium text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">
+                                对比 {compName}
+                              </span>
                             </div>
-                            {betterCompetitors.map(({ comp, compDim }) => {
-                              const scoreDiff = compDim!.score - dim.score;
-                              return (
-                                <div key={comp.url} className="mb-3 last:mb-0">
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <span className="text-xs font-medium text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">
-                                      {comp.title || comp.url.replace(/^https?:\/\//, '')}
-                                    </span>
-                                    <span className="text-xs text-emerald-600">{compDim!.score}分</span>
-                                    <span className="text-xs text-gray-400">（高出 {scoreDiff} 分）</span>
+                            <div className="space-y-4">
+                              {points.map((point, i) => (
+                                <div key={i} className="ml-1">
+                                  {/* Topic */}
+                                  <div className="text-sm font-semibold text-gray-900 mb-1.5">
+                                    {i + 1}. {point.topic}
                                   </div>
-                                  {/* Why competitor is better */}
-                                  <div className="ml-2 space-y-2">
-                                    <div className="text-xs text-gray-700">
-                                      <span className="font-medium text-emerald-700">✓ 做得好的地方：</span>
-                                    </div>
-                                    {compDim!.suggestions.length > 0 && (
-                                      <ul className="space-y-1 ml-3">
-                                        {compDim!.suggestions.map((s, j) => (
-                                          <li key={j} className="text-xs text-gray-600 flex items-start gap-1.5">
-                                            <span className="text-emerald-500 mt-0.5 shrink-0">•</span>
-                                            {s}
-                                          </li>
-                                        ))}
-                                      </ul>
-                                    )}
-                                    {/* Contrast with main site issues */}
-                                    {mainIssues.length > 0 && (
-                                      <div className="mt-2">
-                                        <div className="text-xs text-gray-700">
-                                          <span className="font-medium text-red-500"> 主站不足：</span>
+                                  {/* AI logic */}
+                                  <div className="text-xs text-gray-600 mb-2 flex items-start gap-1.5">
+                                    <span className="text-sky-500 mt-0.5 shrink-0 font-medium">AI 提取逻辑：</span>
+                                    <span>{point.aiLogic}</span>
+                                  </div>
+                                  {/* Comparison */}
+                                  <div className="space-y-2 ml-3">
+                                    {/* Competitor side */}
+                                    {point.competitorText && (
+                                      <div className="rounded-lg bg-white border border-emerald-100 p-3">
+                                        <div className="text-xs mb-1 flex items-center gap-1.5">
+                                          <span className="font-semibold text-emerald-700">{compName}</span>
+                                          <span className="text-emerald-600">✓ AI 可直接引用</span>
                                         </div>
-                                        <ul className="space-y-1 ml-3 mt-1">
-                                          {mainIssues.slice(0, 3).map((issue, j) => (
-                                            <li key={j} className="text-xs text-gray-500 flex items-start gap-1.5">
-                                              <span className="text-red-400 mt-0.5 shrink-0">•</span>
-                                              {issue}
-                                            </li>
-                                          ))}
-                                        </ul>
+                                        <p className="text-xs text-gray-700 leading-relaxed">
+                                          文本直接写入<span className="text-emerald-800 font-medium">{point.competitorText}</span>。
+                                        </p>
+                                        {point.competitorAnalysis && (
+                                          <p className="text-xs text-gray-500 mt-1.5 leading-relaxed">{point.competitorAnalysis}</p>
+                                        )}
                                       </div>
                                     )}
-                                    {/* Content snippet from competitor */}
-                                    {compDim!.contentSnippet && (
-                                      <div className="mt-2 text-xs text-gray-600 bg-white/60 rounded px-3 py-2 border border-gray-100">
-                                        <span className="font-medium text-gray-700"> 内容示例：</span>
-                                        <span className="text-gray-500 ml-1">{compDim!.contentSnippet}</span>
+                                    {!point.competitorText && point.competitorAnalysis && (
+                                      <div className="rounded-lg bg-white border border-emerald-100 p-3">
+                                        <div className="text-xs mb-1 flex items-center gap-1.5">
+                                          <span className="font-semibold text-emerald-700">{compName}</span>
+                                          <span className="text-emerald-600">✓ 结构占优</span>
+                                        </div>
+                                        <p className="text-xs text-gray-500 leading-relaxed">{point.competitorAnalysis}</p>
+                                      </div>
+                                    )}
+                                    {/* Main site side */}
+                                    {point.mainText && (
+                                      <div className="rounded-lg bg-white border border-red-100 p-3">
+                                        <div className="text-xs mb-1 flex items-center gap-1.5">
+                                          <span className="font-semibold text-red-600">主站</span>
+                                          <span className="text-red-500">✗ 对 AI 不友好</span>
+                                        </div>
+                                        <p className="text-xs text-gray-700 leading-relaxed">
+                                          文本多为<span className="text-red-700 font-medium">{point.mainText}</span>等宣传性表述。
+                                        </p>
+                                        {point.mainAnalysis && (
+                                          <p className="text-xs text-gray-500 mt-1.5 leading-relaxed">{point.mainAnalysis}</p>
+                                        )}
+                                      </div>
+                                    )}
+                                    {!point.mainText && point.mainAnalysis && (
+                                      <div className="rounded-lg bg-white border border-red-100 p-3">
+                                        <div className="text-xs mb-1 flex items-center gap-1.5">
+                                          <span className="font-semibold text-red-600">主站</span>
+                                          <span className="text-red-500">✗ 缺失</span>
+                                        </div>
+                                        <p className="text-xs text-gray-500 leading-relaxed">{point.mainAnalysis}</p>
                                       </div>
                                     )}
                                   </div>
                                 </div>
-                              );
-                            })}
+                              ))}
+                            </div>
                           </div>
-                        );
-                      })}
-                    </div>
-                  </section>
-                )}
+                        ))}
+                      </div>
+                    </section>
+                  );
+                })()}
               </div>
             )}
 
