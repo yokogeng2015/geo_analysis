@@ -4,6 +4,17 @@ export interface DimensionScore {
   issues: string[];
   suggestions: string[];
   contentSnippet?: string; // 1-2 lines of actual content from the page
+  intentGaps?: IntentGap[]; // 用户高频意图缺口分析（Comparison Context 专用）
+}
+
+// 用户高频意图缺口（Prompt Intent Gap Analysis）
+export interface IntentGap {
+  topic: string; // 缺失问题点：缺少哪个具体场景或对比维度的解答
+  status: 'missing' | 'unstructured'; // 页面现状类型：未覆盖 / 非结构化
+  pageStatus: string; // 页面现状描述
+  userPrompt: string; // 用户高频 Prompt（具体提问方式）
+  suggestion: string; // 建议补齐文案（直接可复制）
+  suggestionLabel?: string; // 建议文案的类型标签（如"在【佩戴体验】模块新增段落" / "新增 2×3 HTML 表格"）
 }
 
 // 竞品对比分析点：诊断结论 → 竞品示范 → 己方对照 → 改写示范

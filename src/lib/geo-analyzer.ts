@@ -4,6 +4,7 @@ import type {
   CodeSuggestion,
   ComparisonPoint,
   DimensionScore,
+  IntentGap,
 } from '@/types/geo';
 
 interface ParsedPage {
@@ -1031,6 +1032,9 @@ function analyzeComparisonContext(
     suggestions.push('对比上下文完善');
   }
 
+  // 用户高频意图缺口分析（Prompt Intent Gap Analysis）
+  const intentGaps = generateIntentGaps(page);
+
   // Extract content snippet - find a paragraph about comparisons
   let contentSnippet = '';
   const comparisonParagraph = page.paragraphs.find(
@@ -1053,7 +1057,107 @@ function analyzeComparisonContext(
     issues,
     suggestions,
     contentSnippet: contentSnippet || undefined,
+    intentGaps,
   };
+}
+
+/**
+ * 用户高频意图缺口分析（Prompt Intent Gap Analysis）
+ * 1. 预测（Predict User Prompts）：基于产品品类，预测用户买前最常询问 AI 的对话式 Prompt
+ * 2. 缺口比对（Content Gap Identification）：检查页面文本能否直接回答上述 Prompt
+ * 3. 输出：缺失问题点 + 高频 User Prompt + 建议补齐文案（可直接复制）
+ */
+function generateIntentGaps(page: ParsedPage): IntentGap[] {
+  const gaps: IntentGap[] = [];
+  const rawText = page.textContent;
+  const text = rawText.toLowerCase();
+  const title = page.title || '';
+
+  // 提取产品名：优先 title（去掉站点后缀和分隔符后的部分）
+  let productName = title.replace(/[|\-–—_·].*$/, '').trim() || '本产品';
+
+  // ===== 意图 1：场景/人群适配（买前决策最高频）=====
+  // 预测 Prompt 与检测关键词成对出现；页面未覆盖则标记为意图缺口
+  const audienceChecks: {
+    keywords: RegExp;
+    prompt: RegExp | null;
+    topic: string;
+    promptText: (n: string) => string;
+    suggestion: (n: string) => string;
+  }[] = [
+    {
+      keywords: /眼镜|镜腿|压迫/,
+      prompt: null,
+      topic: '缺少【戴眼镜/眼镜腿干涉】场景的适配说明',
+      promptText: (n) => `戴眼镜的人适合戴${n}吗？会不会卡到眼镜腿？`,
+      suggestion: (n) =>
+        `采用避开耳后眼镜腿触点的弧形设计，佩戴时镜腿无额外压迫感，戴眼镜用户可长时间舒适使用。`,
+    },
+    {
+      keywords: /运动|跑步|健身|汗水|防水|防汗/,
+      prompt: null,
+      topic: '缺少【运动/汗水场景】的适用性说明',
+      promptText: (n) => `${n}适合运动、跑步时使用吗？出汗会不会影响？`,
+      suggestion: (n) =>
+        `${n}具备运动场景适配能力：佩戴稳固不易脱落，防汗防泼溅设计满足跑步、健身等场景需求。`,
+    },
+    {
+      keywords: /儿童|老人|学生|小头围|耳道|入门|新手/,
+      prompt: null,
+      topic: '缺少【目标人群/避坑】适配说明',
+      promptText: (n) => `${n}适合哪些人群？老人小孩用起来方便吗？`,
+      suggestion: (n) =>
+        `${n}适合关注核心功能、追求便携易用的用户：操作简单无需复杂设置，初次使用也能快速上手。`,
+    },
+  ];
+
+  for (const check of audienceChecks) {
+    if (gaps.length >= 3) break;
+    // 页面完全没有相关关键词 → 缺失意图
+    if (!check.keywords.test(rawText) && !check.keywords.test(title)) {
+      gaps.push({
+        topic: check.topic,
+        status: 'missing',
+        pageStatus: '扫描全文，未提取到与该场景相关的任何描述，AI 无法回答此类买前提问。',
+        userPrompt: check.promptText(productName),
+        suggestion: check.suggestion(productName),
+        suggestionLabel: '在产品描述模块新增段落',
+      });
+    }
+  }
+
+  // ===== 意图 2：代际/同级对比（选购决策核心）=====
+  const hasGenCompare =
+    /vs\.?|versus|对比|相比|比较|升级|上一代|前代|区别|提升/.test(text) ||
+    page.tables.some((t) => /对比|比较|参数|spec|compare|vs/i.test(t));
+  if (!hasGenCompare) {
+    gaps.push({
+      topic: '缺少与【上一代/同级产品】的参数结构化对比',
+      status: 'unstructured',
+      pageStatus: '仅有单品卖点描述，未提供与前代产品或主流竞品的对比逻辑，AI 无法生成"值不值得升级"类回答。',
+      userPrompt: `${productName}和上一代相比提升了什么？值得升级吗？`,
+      suggestion: `建议新增一个 2×3 的 HTML 表格（对比核心参数：如续航、芯片、音质等级），并在表格上方加上 H3 标题："与上一代产品对比：核心提升点"，逐项列出数值变化，便于 AI 直接提取结构化数据。`,
+      suggestionLabel: '新增对比表格 + H3 标题',
+    });
+  }
+
+  // ===== 意图 3：同类替代品对比（横评意图）=====
+  const hasAltCompare =
+    /替代|同类|同级|竞品|同价位| alternatives |recommend/i.test(text) ||
+    page.tables.length > 0;
+  if (!hasAltCompare && gaps.length < 3) {
+    gaps.push({
+      topic: '缺少【同价位/同类替代品】的横向对比说明',
+      status: 'missing',
+      pageStatus: '页面未提及任何同类替代品或同价位横评信息，AI 在"它和 Y 有什么区别"类提问时无法引用本页面。',
+      userPrompt: `${productName}和同价位其他产品相比有什么区别？`,
+      suggestion: `新增段落"与同价位产品对比"：列出 2-3 个具体差异维度（如佩戴方式、续航、特色功能），每项给出本产品的具体数值或能力，并说明适合哪类需求的用户选择。`,
+      suggestionLabel: '新增横向对比段落',
+    });
+  }
+
+  // 最多输出 3 个意图缺口
+  return gaps.slice(0, 3);
 }
 
 function analyzeEvidenceTrust(
