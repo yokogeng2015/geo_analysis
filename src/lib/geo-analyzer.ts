@@ -1714,7 +1714,10 @@ const splitSentences = (text: string): string[] =>
     .filter(Boolean);
 
 // 页脚/导航等噪音关键词（\d{6,} 过滤客服热线/序列号类数字）
-const FOOTER_NOISE = /(版权所有|关注我们|隐私政策|法律声明|网站地图|联系我们|备案号|选择国家|分享到|\d{6,})/;
+// 噪声过滤：页脚/菜单/免责声明/按钮文本，禁止作为分析例证
+const FOOTER_NOISE = /(版权所有|关注我们|隐私政策|法律声明|免责声明|网站地图|联系我们|备案号|选择国家|分享到|\d{6,})/;
+// 免责声明/按钮/CTA 文本：严禁作为 GEO 分析例证
+const DISCLAIMER_NOISE = /(请以实际(体验|产品|情况)?为准|实际体验为准|仅供参考|可能有(所)?差异|略有差异|因.{0,12}(不同|差异)|更多(详情|信息)|查看更多|了解更多|立即(购买|抢购|注册|体验)|到货通知|加入购物车|马上(购买|抢购)|点击(购买|查看|这里)|前往(购买|商城)|在线(客服|咨询)|售(后|前)服务|预约(体验|试用)|找相似|相关推荐|为您推荐|猜你喜欢|热卖|爆款|新品(上市|首发)|限时(优惠|折扣)|即将(上市|发售)|敬请期待|以官网为准|最终解释权)/;
 
 function findScenarioTexts(paragraphs: string[]): string[] {
   const results: string[] = [];
@@ -1727,7 +1730,7 @@ function findScenarioTexts(paragraphs: string[]): string[] {
     const p = cleanText(raw) || raw;
     const sentences = splitSentences(p).filter((s) => s.length > 5);
     for (const s of sentences) {
-      if (hasScenarioFunction(s) && s.length <= 80 && !FOOTER_NOISE.test(s) && !specFootnote.test(s)) {
+      if (hasScenarioFunction(s) && s.length <= 80 && !FOOTER_NOISE.test(s) && !DISCLAIMER_NOISE.test(s) && !specFootnote.test(s)) {
         const normKey = s.replace(/\s+/g, '');
         if (seenNorm.has(normKey)) continue;
         seenNorm.add(normKey);
@@ -1755,7 +1758,7 @@ function findMarketingTexts(paragraphs: string[]): string[] {
     const p = cleanText(raw) || raw;
     const sentences = splitSentences(p).filter((s) => s.length > 6 && s.length <= 60);
     for (const s of sentences) {
-      if (isMarketingClaim(s) && !FOOTER_NOISE.test(s)) {
+      if (isMarketingClaim(s) && !FOOTER_NOISE.test(s) && !DISCLAIMER_NOISE.test(s)) {
         results.push(s);
         if (results.length >= 3) return results;
       }
@@ -1781,7 +1784,7 @@ function findQuantTexts(paragraphs: string[]): string[] {
     // 收集所有量化句子，优先完整长句（短碎片排后）
     const sentences = splitSentences(p).filter((s) => s.length > 8 && s.length <= 80);
     for (const s of sentences) {
-      if (hasQuantData(s) && !FOOTER_NOISE.test(s)) {
+      if (hasQuantData(s) && !FOOTER_NOISE.test(s) && !DISCLAIMER_NOISE.test(s)) {
         dedupPush(s);
       }
     }
@@ -1799,7 +1802,7 @@ function findProblemSolutionTexts(paragraphs: string[]): string[] {
     const p = cleanText(raw) || raw;
     const sentences = splitSentences(p).filter((s) => s.length > 10 && s.length <= 80);
     for (const s of sentences) {
-      if (painWords.test(s) && solutionWords.test(s) && !FOOTER_NOISE.test(s)) {
+      if (painWords.test(s) && solutionWords.test(s) && !FOOTER_NOISE.test(s) && !DISCLAIMER_NOISE.test(s)) {
         results.push(s);
         if (results.length >= 2) return results;
       }
@@ -1976,6 +1979,32 @@ function collectContentTexts(page: ParsedPage): string[] {
  * 对比主站与竞品页面，生成具体的竞品参考分析点。
  * 只生成有实际内容依据的对比点，避免空洞结论。
  */
+// 从营销词生成改写示范（规则模板：场景 + 功能 + 可验证效果）
+function buildScenarioRewrite(productName: string, marketingClaims: string[], compSample?: string): string {
+  const scenes = ['通勤地铁上', '差旅高铁/机场候机时', '开放式办公室里', '周末户外徒步中'];
+  const scene = scenes[Math.min(marketingClaims.length, scenes.length - 1)];
+  const core = marketingClaims[0]?.replace(/[【】""''（）()、，。！!？? ]+/g, ' ').trim().slice(0, 20) || '核心功能';
+  return `改写示例："${scene}，${productName}自动开启${core}，无需手动调节；嘈杂环境中的通话与人声依然清晰，适合每天需要${scene.includes('通勤') ? '长距离通勤' : '移动办公'}的用户。"` +
+    (compSample ? `\n（参考竞品句式：将功能绑定到"谁 + 在哪 + 做什么 + 效果"，AI 可直接摘录为推荐理由。）` : '');
+}
+
+function buildQuantRewrite(productName: string, compQuant: string[]): string {
+  const numMatch = compQuant[0]?.match(/[\d.]+\s*(?:小时|分钟|km|dB|英寸|Hz|mAh|W\b|%)/);
+  return `改写示例："${productName}官方标称${numMatch ? `关键指标达到 ${numMatch[0]}` : '核心参数均给出具体数值'}（注明测试条件：如 XX 音量、XX 模式），续航/性能数据可直接被 AI 引用。规则：每个卖点至少配 1 个数字 + 1 个测试条件，删除'超长续航''极致轻巧'类无量词表述。"`;
+}
+
+function buildPSRewrite(productName: string): string {
+  return `改写示例："经常在嘈杂环境中漏听提示音？${productName}针对该痛点提供两步方案：1) 开启环境声自适应，实时监测周围噪音；2) 在 App 中一键切换通透模式。全程无需摘下设备。"`;
+}
+
+function buildFaqRewrite(productName: string): string {
+  return `改写示例（配 FAQPage Schema）："Q：${productName}适合戴多久？A：单次连续佩戴约 6 小时无压迫感，耳压经实验室测试低于行业均值；建议每 2 小时休息 5 分钟。"`;
+}
+
+function buildStepsRewrite(productName: string): string {
+  return `改写示例："${productName}三步完成配对：1) 长按电源键 2 秒进入配对模式（指示灯快闪）；2) 手机蓝牙列表选择设备名称；3) 语音提示'已连接'即完成。首次配对约需 10 秒。"`;
+}
+
 export function generateComparisonPoints(
   main: ParsedPage,
   competitor: ParsedPage
@@ -1984,6 +2013,9 @@ export function generateComparisonPoints(
   const compName = competitor.title
     ? competitor.title.replace(/[|\-–—_].*$/, '').trim().slice(0, 30)
     : '竞品';
+  const productName = main.title
+    ? main.title.replace(/[|\-–—_].*$/, '').trim().slice(0, 30) || '产品'
+    : '产品';
 
   // 汇总双方全部文本来源（段落+列表+表格+标题）
   const mainTexts = collectContentTexts(main);
@@ -1996,17 +2028,18 @@ export function generateComparisonPoints(
 
   if (compScenarios.length > 0 && (mainScenarios.length < compScenarios.length || mainMarketing.length > 0)) {
     points.push({
-      topic: '缺乏"场景/痛点 → 功能响应"的场景化叙事',
-      aiLogic:
-        'GEO 极其偏好"场景/痛点 → 解决方案 → 操作步骤"的文本结构，AI 能直接识别出【场景/任务】→【功能响应】的场景链条并用于回答"在 X 场景下应该怎么办"类提问。',
+      topic: '诊断维度 1：场景化表达缺失（缺乏"场景/痛点 → 功能响应"叙事）',
+      rationale:
+        'GEO 极其偏好"场景/痛点 → 解决方案 → 操作步骤"的文本结构：AI 能直接识别【场景/任务】→【功能响应】链条，用于回答"在 X 场景下应该怎么办"类提问。',
       competitorText: quoteList(compScenarios),
       competitorAnalysis:
-        '对方将功能直接绑定到具体使用场景中，AI 能够直接提取"场景 → 功能"链条，在用户询问相关场景时优先引用。',
+        `该文案将功能绑定到具体使用场景（谁 + 在哪 + 做什么 + 效果），AI 可直接提取"场景 → 功能"链条，在用户询问相关场景时优先引用${compName}的回答。`,
       mainText: mainMarketing.length > 0 ? quoteList(mainMarketing) : mainScenarios.length > 0 ? quoteList(mainScenarios) : undefined,
       mainAnalysis:
         mainMarketing.length > 0
           ? '主站文本多为广告宣传词（Marketing Claims）。在 AI 的语义分析中，这类修饰词属于低信息量的无意图文本，不会被判定为有效场景。'
           : '主站缺少"场景 + 功能"的绑定描述，AI 难以将其匹配到具体使用场景的提问。',
+      rewrite: buildScenarioRewrite(productName, mainMarketing, compScenarios[0]),
     });
   }
 
@@ -2016,17 +2049,18 @@ export function generateComparisonPoints(
 
   if (compQuant.length > 0 && mainQuant.length < compQuant.length) {
     points.push({
-      topic: '量化数据不足，事实密度低于竞品',
-      aiLogic:
-        'AI 在生成回答时优先引用带具体数值的事实（如续航时长、峰值亮度、降噪深度）。无数字的形容词描述被视为不可验证信息，引用权重极低。',
+      topic: '诊断维度 2：技术原理与参数未对齐（量化数据不足，事实密度低于竞品）',
+      rationale:
+        'AI 生成回答时优先引用带具体数值的可验证事实（续航时长、峰值亮度、降噪深度）。无数字的形容词描述被视为不可验证信息，引用权重极低。',
       competitorText: quoteList(compQuant),
       competitorAnalysis:
-        '对方使用具体数值描述产品表现，属于"可验证事实"，AI 直接摘录进回答的概率显著更高。',
+        '对方使用具体数值 + 测试条件描述产品表现，属于"可验证事实"，AI 直接摘录进回答的概率显著更高。',
       mainText: mainQuant.length > 0 ? quoteList(mainQuant) : undefined,
       mainAnalysis:
         mainQuant.length > 0
           ? '主站虽有部分数据，但量化密度明显低于竞品，AI 引用时信息量不足。'
           : '主站缺少量化数据，功能描述依赖形容词，AI 难以将其作为事实依据引用。',
+      rewrite: buildQuantRewrite(productName, compQuant),
     });
   }
 
@@ -2036,14 +2070,15 @@ export function generateComparisonPoints(
 
   if (compPS.length > 0 && mainPS.length === 0) {
     points.push({
-      topic: '缺乏"问题-解决方案（Problem-Solving）"的结构化叙事',
-      aiLogic:
-        'GEO 极其偏好"痛点 → 解决方案 → 操作步骤"的文本结构。AI 在回答"如何解决 X 问题"类提问时，会优先检索带痛点关键词的内容。',
+      topic: '诊断维度 3：缺乏"问题-解决方案（Problem-Solving）"结构化叙事',
+      rationale:
+        'GEO 偏好"痛点 → 解决方案 → 操作步骤"结构。AI 在回答"如何解决 X 问题"类提问时，优先检索带痛点关键词的内容。',
       competitorText: quoteList(compPS),
       competitorAnalysis:
         '对方文本明确写出用户痛点并给出对应解决方案，AI 可直接将其组织为"问题 → 方案"的答案片段。',
       mainAnalysis:
         '主站内容以功能罗列为主，未覆盖用户痛点表述，在"怎么办/如何解决"类提问中几乎不会被命中。',
+      rewrite: buildPSRewrite(productName),
     });
   }
 
@@ -2051,29 +2086,31 @@ export function generateComparisonPoints(
   if (mainMarketing.length >= 2 && compScenarios.length > 0) {
     const compDesc = compScenarios[0];
     points.push({
-      topic: '宣传语式文案削弱 AI 可引用性',
-      aiLogic:
-        'AI 的语义分析会将"超乎想象""极致体验"类修饰词标记为低信息量的主观文本（Subjective Claims），这类内容不会出现在 AI 生成的推荐理由中。',
+      topic: '诊断维度 4：宣传语式文案削弱 AI 可引用性',
+      rationale:
+        'AI 语义分析会将"超乎想象""极致体验"类修饰词标记为低信息量主观文本（Subjective Claims），不会出现在 AI 生成的推荐理由中。',
       competitorText: `"${compDesc}"`,
       competitorAnalysis:
-        '同样是在讲产品优势，对方用的是"可感知的具体行为描述"而非情绪化修饰，AI 可以原样摘录为推荐依据。',
+        '同样在讲产品优势，对方用"可感知的具体行为描述"而非情绪化修饰，AI 可以原样摘录为推荐依据。',
       mainText: quoteList(mainMarketing, 3),
       mainAnalysis:
-        '主站大量使用情绪化修饰词堆砌卖点。建议改写为"具体场景 + 可验证效果"的客观句式。',
+        '主站大量使用情绪化修饰词堆砌卖点，属于低熵文本；AI 无法从"轻盈""稳固"中提取可验证的场景证据。',
+      rewrite: buildScenarioRewrite(productName, mainMarketing.slice(0, 3), compDesc),
     });
   }
 
   // ---- 5. FAQ / 问答结构 ----
   if (competitor.faqContent.length > 0 && main.faqContent.length === 0) {
     points.push({
-      topic: '缺少 FAQ 问答结构，错失 AI 直接引用入口',
-      aiLogic:
-        'FAQ（配合 FAQPage Schema）是 AI 引擎最高优先级的引用来源之一。带 Schema 的问答内容在 AI 生成回答中的引用权重远高于普通段落。',
+      topic: '诊断维度 5：缺少 FAQ 问答结构，错失 AI 直接引用入口',
+      rationale:
+        'FAQ（配合 FAQPage Schema）是 AI 引擎最高优先级的引用来源之一，带 Schema 的问答内容引用权重远高于普通段落。',
       competitorText: `"${competitor.faqContent[0].question}" → "${competitor.faqContent[0].answer.slice(0, 60)}..."`,
       competitorAnalysis:
-        '对方以"用户原话提问 + 结构化回答"的形式组织内容，AI 可直接摘取整组问答作为回答素材。',
+        '对方以"用户原话提问 + 结构化回答"组织内容，AI 可直接摘取整组问答作为回答素材。',
       mainAnalysis:
         '主站没有 FAQ 结构，用户高频问题只能从长段落中自行推断，AI 提取成本高、命中概率低。',
+      rewrite: buildFaqRewrite(productName),
     });
   }
 
@@ -2082,11 +2119,12 @@ export function generateComparisonPoints(
   const mainStepCount = main.lists.length;
   if (compStepCount > mainStepCount * 2 && compStepCount >= 4) {
     points.push({
-      topic: '步骤化/结构化内容不足',
-      aiLogic:
-        'AI 偏好以有序列表（步骤 1/2/3）组织操作类内容。列表结构让 AI 能够按条摘录，形成"步骤型答案"。',
+      topic: '诊断维度 6：步骤化/结构化内容不足',
+      rationale:
+        'AI 偏好以有序列表（步骤 1/2/3）组织操作类内容，列表结构让 AI 能按条摘录，形成"步骤型答案"。',
       competitorAnalysis: `对方页面包含 ${compStepCount} 组列表结构，操作说明被组织为可逐条引用的步骤链。`,
-      mainAnalysis: `主站仅有 ${mainStepCount} 组列表，操作说明以长段落呈现，AI 提取步骤时需要自行切分，容易丢失关键细节。`,
+      mainAnalysis: `主站仅有 ${mainStepCount} 组列表，操作说明以长段落呈现，AI 提取步骤时需自行切分，容易丢失关键细节。`,
+      rewrite: buildStepsRewrite(productName),
     });
   }
 

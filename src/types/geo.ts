@@ -6,14 +6,15 @@ export interface DimensionScore {
   contentSnippet?: string; // 1-2 lines of actual content from the page
 }
 
-// 竞品对比分析点：展示双方实际内容 + AI 提取逻辑说明
+// 竞品对比分析点：诊断结论 → 竞品示范 → 己方对照 → 改写示范
 export interface ComparisonPoint {
-  topic: string; // 对比主题，如"缺乏'问题-解决方案'的结构化叙事"
-  aiLogic: string; // AI 提取逻辑说明，如"GEO 极其偏好'场景/痛点 → 解决方案 → 操作步骤'的文本结构"
-  competitorText?: string; // 竞品实际内容引用（1-2 行）
-  competitorAnalysis?: string; // 为什么竞品的写法对 AI 更友好
-  mainText?: string; // 主站实际内容引用（1-2 行）
-  mainAnalysis?: string; // 为什么主站的写法对 AI 不友好
+  topic: string; // 诊断定位，如"缺乏'场景/痛点 → 功能响应'的场景化叙事"
+  rationale: string; // 判定依据：GEO 为什么重视这一点（1 句话）
+  competitorText?: string; // 🟢 竞品优质示范原文（已过滤免责/按钮/页脚文本）
+  competitorAnalysis?: string; // 亮点解析：该文案如何匹配 Prompt Intent
+  mainText?: string; // 🔴 己方劣势文本原文（堆砌式/广告化文案）
+  mainAnalysis?: string; // 问题诊断：为什么属于低熵/营销修饰词
+  rewrite?: string; // 💡 推荐优化改写方案（标准 GEO 范例文案）
 }
 
 export interface CodeSuggestion {

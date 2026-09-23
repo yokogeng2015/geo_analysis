@@ -687,66 +687,67 @@ export default function Home() {
                                 对比 {compName}
                               </span>
                             </div>
-                            <div className="space-y-4">
+                            <div className="space-y-5">
                               {points.map((point, i) => (
                                 <div key={i} className="ml-1">
-                                  {/* Topic */}
-                                  <div className="text-sm font-semibold text-gray-900 mb-1.5">
-                                    {i + 1}. {point.topic}
+                                  {/* 诊断定位 */}
+                                  <div className="text-sm font-bold text-gray-900 mb-1.5">
+                                    {point.topic}
                                   </div>
-                                  {/* AI logic */}
-                                  <div className="text-xs text-gray-600 mb-2 flex items-start gap-1.5">
-                                    <span className="text-sky-500 mt-0.5 shrink-0 font-medium">AI 提取逻辑：</span>
-                                    <span>{point.aiLogic}</span>
-                                  </div>
-                                  {/* Comparison */}
-                                  <div className="space-y-2 ml-3">
-                                    {/* Competitor side */}
-                                    {point.competitorText && (
-                                      <div className="rounded-lg bg-white border border-emerald-100 p-3">
-                                        <div className="text-xs mb-1 flex items-center gap-1.5">
-                                          <span className="font-semibold text-emerald-700">{compName}</span>
-                                          <span className="text-emerald-600">✓ AI 可直接引用</span>
+                                  {/* 判定依据 */}
+                                  {point.rationale && (
+                                    <div className="text-xs text-gray-600 mb-2.5 flex items-start gap-1.5 leading-relaxed">
+                                      <span className="text-sky-600 mt-0.5 shrink-0 font-semibold">判定依据：</span>
+                                      <span>{point.rationale}</span>
+                                    </div>
+                                  )}
+                                  <div className="space-y-2.5 ml-3">
+                                    {/* 🟢 竞品优势示范 */}
+                                    {(point.competitorText || point.competitorAnalysis) && (
+                                      <div className="rounded-lg bg-white border border-emerald-200 p-3">
+                                        <div className="text-xs mb-1.5 flex items-center gap-1.5 font-semibold">
+                                          <span>🟢</span>
+                                          <span className="text-emerald-700">{compName} · 竞品优势文本（可被 AI 优先提取）</span>
                                         </div>
-                                        <p className="text-xs text-gray-700 leading-relaxed">
-                                          文本直接写入<span className="text-emerald-800 font-medium">{point.competitorText}</span>。
-                                        </p>
+                                        {point.competitorText && (
+                                          <p className="text-xs text-gray-800 leading-relaxed">
+                                            原文提取：<span className="text-emerald-900 font-medium">&quot;{point.competitorText}&quot;</span>
+                                          </p>
+                                        )}
                                         {point.competitorAnalysis && (
-                                          <p className="text-xs text-gray-500 mt-1.5 leading-relaxed">{point.competitorAnalysis}</p>
+                                          <p className="text-xs text-gray-500 mt-1.5 leading-relaxed">
+                                            <span className="text-emerald-700 font-medium">亮点解析：</span>{point.competitorAnalysis}
+                                          </p>
                                         )}
                                       </div>
                                     )}
-                                    {!point.competitorText && point.competitorAnalysis && (
-                                      <div className="rounded-lg bg-white border border-emerald-100 p-3">
-                                        <div className="text-xs mb-1 flex items-center gap-1.5">
-                                          <span className="font-semibold text-emerald-700">{compName}</span>
-                                          <span className="text-emerald-600">✓ 结构占优</span>
+                                    {/* 🔴 己方劣势对照 */}
+                                    {(point.mainText || point.mainAnalysis) && (
+                                      <div className="rounded-lg bg-white border border-red-200 p-3">
+                                        <div className="text-xs mb-1.5 flex items-center gap-1.5 font-semibold">
+                                          <span>🔴</span>
+                                          <span className="text-red-600">主站 · 己方劣势文本（对 AI 不友好）</span>
                                         </div>
-                                        <p className="text-xs text-gray-500 leading-relaxed">{point.competitorAnalysis}</p>
-                                      </div>
-                                    )}
-                                    {/* Main site side */}
-                                    {point.mainText && (
-                                      <div className="rounded-lg bg-white border border-red-100 p-3">
-                                        <div className="text-xs mb-1 flex items-center gap-1.5">
-                                          <span className="font-semibold text-red-600">主站</span>
-                                          <span className="text-red-500">✗ 对 AI 不友好</span>
-                                        </div>
-                                        <p className="text-xs text-gray-700 leading-relaxed">
-                                          文本多为<span className="text-red-700 font-medium">{point.mainText}</span>等宣传性表述。
-                                        </p>
+                                        {point.mainText && (
+                                          <p className="text-xs text-gray-800 leading-relaxed">
+                                            原文提取：<span className="text-red-700 font-medium">&quot;{point.mainText}&quot;</span>
+                                          </p>
+                                        )}
                                         {point.mainAnalysis && (
-                                          <p className="text-xs text-gray-500 mt-1.5 leading-relaxed">{point.mainAnalysis}</p>
+                                          <p className="text-xs text-gray-500 mt-1.5 leading-relaxed">
+                                            <span className="text-red-500 font-medium">问题诊断：</span>{point.mainAnalysis}
+                                          </p>
                                         )}
                                       </div>
                                     )}
-                                    {!point.mainText && point.mainAnalysis && (
-                                      <div className="rounded-lg bg-white border border-red-100 p-3">
-                                        <div className="text-xs mb-1 flex items-center gap-1.5">
-                                          <span className="font-semibold text-red-600">主站</span>
-                                          <span className="text-red-500">✗ 缺失</span>
+                                    {/* 💡 推荐改写示范 */}
+                                    {point.rewrite && (
+                                      <div className="rounded-lg bg-white border border-sky-200 p-3">
+                                        <div className="text-xs mb-1.5 flex items-center gap-1.5 font-semibold">
+                                          <span>💡</span>
+                                          <span className="text-sky-700">推荐优化改写方案（标准 GEO 范例）</span>
                                         </div>
-                                        <p className="text-xs text-gray-500 leading-relaxed">{point.mainAnalysis}</p>
+                                        <p className="text-xs text-gray-800 leading-relaxed whitespace-pre-line">{point.rewrite}</p>
                                       </div>
                                     )}
                                   </div>
