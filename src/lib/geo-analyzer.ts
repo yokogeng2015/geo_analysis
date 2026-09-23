@@ -1718,6 +1718,8 @@ const splitSentences = (text: string): string[] =>
 const FOOTER_NOISE = /(版权所有|关注我们|隐私政策|法律声明|免责声明|网站地图|联系我们|备案号|选择国家|分享到|\d{6,})/;
 // 免责声明/按钮/CTA 文本：严禁作为 GEO 分析例证
 const DISCLAIMER_NOISE = /(请以实际(体验|产品|情况)?为准|实际体验为准|仅供参考|可能有(所)?差异|略有差异|因.{0,12}(不同|差异)|更多(详情|信息)|查看更多|了解更多|立即(购买|抢购|注册|体验)|到货通知|加入购物车|马上(购买|抢购)|点击(购买|查看|这里)|前往(购买|商城)|在线(客服|咨询)|售(后|前)服务|预约(体验|试用)|找相似|相关推荐|为您推荐|猜你喜欢|热卖|爆款|新品(上市|首发)|限时(优惠|折扣)|即将(上市|发售)|敬请期待|以官网为准|最终解释权)/;
+// 备注/脚注/技术注解类文本（*1 标注、可能性说明、条件限制说明）：不作为分析例证，对比仅针对正文产品描述
+const FOOTNOTE_NOISE = /(^\s*[*＊]\s*\d|[*＊]\s*\d+\s*$|^注[:：]|^备注[:：]|^\(\d|^\（\d|可能会(产生|出现|造成|导致|有|受|影响|无法|被|带)|可能无法|可能存在|可能不|或(存在|有)差异|基于.{0,25}的(天性|特性|原理|机制|原因)|受.{0,20}(影响|限制|制约)|视.{0,15}(而定|而异|情况)|取决于|不适用于|仅(在|限).{0,12}(情况|条件|环境)|特殊(情况|设置|条件)|实际(使用|续航|表现|效果).{0,10}(因|视|会|可能))/;
 
 function findScenarioTexts(paragraphs: string[]): string[] {
   const results: string[] = [];
@@ -1730,7 +1732,7 @@ function findScenarioTexts(paragraphs: string[]): string[] {
     const p = cleanText(raw) || raw;
     const sentences = splitSentences(p).filter((s) => s.length > 5);
     for (const s of sentences) {
-      if (hasScenarioFunction(s) && s.length <= 80 && !FOOTER_NOISE.test(s) && !DISCLAIMER_NOISE.test(s) && !specFootnote.test(s)) {
+      if (hasScenarioFunction(s) && s.length <= 80 && !FOOTER_NOISE.test(s) && !DISCLAIMER_NOISE.test(s) && !FOOTNOTE_NOISE.test(s) && !specFootnote.test(s)) {
         const normKey = s.replace(/\s+/g, '');
         if (seenNorm.has(normKey)) continue;
         seenNorm.add(normKey);
@@ -1758,7 +1760,7 @@ function findMarketingTexts(paragraphs: string[]): string[] {
     const p = cleanText(raw) || raw;
     const sentences = splitSentences(p).filter((s) => s.length > 6 && s.length <= 60);
     for (const s of sentences) {
-      if (isMarketingClaim(s) && !FOOTER_NOISE.test(s) && !DISCLAIMER_NOISE.test(s)) {
+      if (isMarketingClaim(s) && !FOOTER_NOISE.test(s) && !DISCLAIMER_NOISE.test(s) && !FOOTNOTE_NOISE.test(s)) {
         results.push(s);
         if (results.length >= 3) return results;
       }
@@ -1784,7 +1786,7 @@ function findQuantTexts(paragraphs: string[]): string[] {
     // 收集所有量化句子，优先完整长句（短碎片排后）
     const sentences = splitSentences(p).filter((s) => s.length > 8 && s.length <= 80);
     for (const s of sentences) {
-      if (hasQuantData(s) && !FOOTER_NOISE.test(s) && !DISCLAIMER_NOISE.test(s)) {
+      if (hasQuantData(s) && !FOOTER_NOISE.test(s) && !DISCLAIMER_NOISE.test(s) && !FOOTNOTE_NOISE.test(s)) {
         dedupPush(s);
       }
     }
@@ -1802,7 +1804,7 @@ function findProblemSolutionTexts(paragraphs: string[]): string[] {
     const p = cleanText(raw) || raw;
     const sentences = splitSentences(p).filter((s) => s.length > 10 && s.length <= 80);
     for (const s of sentences) {
-      if (painWords.test(s) && solutionWords.test(s) && !FOOTER_NOISE.test(s) && !DISCLAIMER_NOISE.test(s)) {
+      if (painWords.test(s) && solutionWords.test(s) && !FOOTER_NOISE.test(s) && !DISCLAIMER_NOISE.test(s) && !FOOTNOTE_NOISE.test(s)) {
         results.push(s);
         if (results.length >= 2) return results;
       }
