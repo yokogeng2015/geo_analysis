@@ -617,17 +617,12 @@ export default function Home() {
                   </div>
                 )}
 
-                {/* Code suggestions */}
-                {currentCategory && currentCategory.suggestions.length > 0 && (
+                {/* Code suggestions (Technical GEO only, avoid duplicate in Content tab) */}
+                {activeTab === 'technical' && currentCategory && currentCategory.suggestions.length > 0 && (
                   <section>
                     <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
                       <svg
-                        className={cn(
-                          'w-5 h-5',
-                          activeTab === 'technical'
-                            ? 'text-sky-500'
-                            : 'text-amber-500'
-                        )}
+                        className="w-5 h-5 text-sky-500"
                         fill="none"
                         viewBox="0 0 24 24"
                         stroke="currentColor"
@@ -647,9 +642,7 @@ export default function Home() {
                         <CodeSuggestionCard
                           key={i}
                           suggestion={suggestion}
-                          accentColor={
-                            activeTab === 'technical' ? 'cyan' : 'orange'
-                          }
+                          accentColor="cyan"
                         />
                       ))}
                     </div>

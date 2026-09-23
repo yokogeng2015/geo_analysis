@@ -1852,7 +1852,7 @@ function findScenarioTexts(paragraphs: string[]): string[] {
   candidates.sort((a, b) => b.score - a.score);
   for (const c of candidates) {
     results.push(c.text);
-    if (results.length >= 3) break;
+    if (results.length >= 5) break;
   }
   return results;
 }
@@ -1866,7 +1866,7 @@ function findMarketingTexts(paragraphs: string[]): string[] {
     for (const s of sentences) {
       if (isMarketingClaim(s) && !FOOTER_NOISE.test(s) && !DISCLAIMER_NOISE.test(s) && !FOOTNOTE_NOISE.test(s)) {
         results.push(s);
-        if (results.length >= 3) return results;
+        if (results.length >= 5) return results;
       }
     }
   }
@@ -1896,7 +1896,7 @@ function findQuantTexts(paragraphs: string[]): string[] {
     }
   }
   // 长句优先（完整句 > 片段）
-  return results.sort((a, b) => b.length - a.length).slice(0, 3);
+  return results.sort((a, b) => b.length - a.length).slice(0, 5);
 }
 
 // 从段落列表中找出"问题-解决方案"结构句子（痛点词 + 解决词）
@@ -1910,7 +1910,7 @@ function findProblemSolutionTexts(paragraphs: string[]): string[] {
     for (const s of sentences) {
       if (painWords.test(s) && solutionWords.test(s) && !FOOTER_NOISE.test(s) && !DISCLAIMER_NOISE.test(s) && !FOOTNOTE_NOISE.test(s)) {
         results.push(s);
-        if (results.length >= 2) return results;
+        if (results.length >= 3) return results;
       }
     }
   }
@@ -2123,6 +2123,27 @@ export function generateComparisonPoints(
     ? main.title.replace(/[|\-–—_].*$/, '').trim().slice(0, 30) || '产品'
     : '产品';
 
+  // 全局引文登记表：同一句原文只允许在一个维度中出现，避免多个维度重复引用
+  const usedQuotes = new Set<string>();
+  const normQuote = (t: string) => t.replace(/\s+/g, '');
+  /** 从候选中取前 max 条未被使用过的原文，并登记占用 */
+  const pickFresh = (texts: string[], max: number): string[] => {
+    const picked: string[] = [];
+    for (const t of texts) {
+      const key = normQuote(t);
+      if (!key || usedQuotes.has(key)) continue;
+      usedQuotes.add(key);
+      picked.push(t);
+      if (picked.length >= max) break;
+    }
+    return picked;
+  };
+  /** 取未被使用的原文拼成引文串；无可用原文时返回 undefined */
+  const freshQuoteList = (texts: string[], max = 3): string | undefined => {
+    const picked = pickFresh(texts, max);
+    return picked.length > 0 ? picked.map((t) => `"${t}"`).join('、') : undefined;
+  };
+
   // 汇总双方全部文本来源（段落+列表+表格+标题）
   const mainTexts = collectContentTexts(main);
   const compTexts = collectContentTexts(competitor);
@@ -2134,13 +2155,16 @@ export function generateComparisonPoints(
 
   if (compScenarios.length > 0 && (mainScenarios.length < compScenarios.length || mainMarketing.length > 0)) {
     points.push({
-      topic: '诊断维度 1：场景化表达缺失（缺乏"场景/痛点 → 功能响应"叙事）',
+      topic: '诊断维度：场景化表达缺失（缺乏"场景/痛点 → 功能响应"叙事）',
       rationale:
         'GEO 极其偏好"场景/痛点 → 解决方案 → 操作步骤"的文本结构：AI 能直接识别【场景/任务】→【功能响应】链条，用于回答"在 X 场景下应该怎么办"类提问。',
-      competitorText: quoteList(compScenarios),
+      competitorText: freshQuoteList(compScenarios, 3),
       competitorAnalysis:
         `该文案将功能绑定到具体使用场景（谁 + 在哪 + 做什么 + 效果），AI 可直接提取"场景 → 功能"链条，在用户询问相关场景时优先引用${compName}的回答。`,
-      mainText: mainMarketing.length > 0 ? quoteList(mainMarketing) : mainScenarios.length > 0 ? quoteList(mainScenarios) : undefined,
+      mainText:
+        mainMarketing.length > 0
+          ? freshQuoteList(mainMarketing, 3)
+          : freshQuoteList(mainScenarios, 3),
       mainAnalysis:
         mainMarketing.length > 0
           ? '主站文本多为广告宣传词（Marketing Claims）。在 AI 的语义分析中，这类修饰词属于低信息量的无意图文本，不会被判定为有效场景。'
@@ -2155,13 +2179,13 @@ export function generateComparisonPoints(
 
   if (compQuant.length > 0 && mainQuant.length < compQuant.length) {
     points.push({
-      topic: '诊断维度 2：技术原理与参数未对齐（量化数据不足，事实密度低于竞品）',
+      topic: '诊断维度：技术原理与参数未对齐（量化数据不足，事实密度低于竞品）',
       rationale:
         'AI 生成回答时优先引用带具体数值的可验证事实（续航时长、峰值亮度、降噪深度）。无数字的形容词描述被视为不可验证信息，引用权重极低。',
-      competitorText: quoteList(compQuant),
+      competitorText: freshQuoteList(compQuant, 3),
       competitorAnalysis:
         '对方使用具体数值 + 测试条件描述产品表现，属于"可验证事实"，AI 直接摘录进回答的概率显著更高。',
-      mainText: mainQuant.length > 0 ? quoteList(mainQuant) : undefined,
+      mainText: mainQuant.length > 0 ? freshQuoteList(mainQuant, 3) : undefined,
       mainAnalysis:
         mainQuant.length > 0
           ? '主站虽有部分数据，但量化密度明显低于竞品，AI 引用时信息量不足。'
@@ -2176,10 +2200,10 @@ export function generateComparisonPoints(
 
   if (compPS.length > 0 && mainPS.length === 0) {
     points.push({
-      topic: '诊断维度 3：缺乏"问题-解决方案（Problem-Solving）"结构化叙事',
+      topic: '诊断维度：缺乏"问题-解决方案（Problem-Solving）"结构化叙事',
       rationale:
         'GEO 偏好"痛点 → 解决方案 → 操作步骤"结构。AI 在回答"如何解决 X 问题"类提问时，优先检索带痛点关键词的内容。',
-      competitorText: quoteList(compPS),
+      competitorText: freshQuoteList(compPS, 2),
       competitorAnalysis:
         '对方文本明确写出用户痛点并给出对应解决方案，AI 可直接将其组织为"问题 → 方案"的答案片段。',
       mainAnalysis:
@@ -2188,27 +2212,28 @@ export function generateComparisonPoints(
     });
   }
 
-  // ---- 4. 广告词 vs 客观描述（仅当主站明显广告词多） ----
-  if (mainMarketing.length >= 2 && compScenarios.length > 0) {
-    const compDesc = compScenarios[0];
+  // ---- 4. 广告词 vs 客观描述（仅当还有未被引用的宣传词与场景原文时） ----
+  const freshMarketing = pickFresh(mainMarketing, 3);
+  const freshCompScenario = pickFresh(compScenarios, 1)[0];
+  if (mainMarketing.length >= 2 && freshMarketing.length > 0 && freshCompScenario) {
     points.push({
-      topic: '诊断维度 4：宣传语式文案削弱 AI 可引用性',
+      topic: '诊断维度：宣传语式文案削弱 AI 可引用性',
       rationale:
         'AI 语义分析会将"超乎想象""极致体验"类修饰词标记为低信息量主观文本（Subjective Claims），不会出现在 AI 生成的推荐理由中。',
-      competitorText: `"${compDesc}"`,
+      competitorText: `"${freshCompScenario}"`,
       competitorAnalysis:
         '同样在讲产品优势，对方用"可感知的具体行为描述"而非情绪化修饰，AI 可以原样摘录为推荐依据。',
-      mainText: quoteList(mainMarketing, 3),
+      mainText: freshMarketing.map((t) => `"${t}"`).join('、'),
       mainAnalysis:
         '主站大量使用情绪化修饰词堆砌卖点，属于低熵文本；AI 无法从"轻盈""稳固"中提取可验证的场景证据。',
-      rewrite: buildScenarioRewrite(productName, mainMarketing.slice(0, 3), compDesc),
+      rewrite: buildScenarioRewrite(productName, freshMarketing, freshCompScenario),
     });
   }
 
   // ---- 5. FAQ / 问答结构 ----
   if (competitor.faqContent.length > 0 && main.faqContent.length === 0) {
     points.push({
-      topic: '诊断维度 5：缺少 FAQ 问答结构，错失 AI 直接引用入口',
+      topic: '诊断维度：缺少 FAQ 问答结构，错失 AI 直接引用入口',
       rationale:
         'FAQ（配合 FAQPage Schema）是 AI 引擎最高优先级的引用来源之一，带 Schema 的问答内容引用权重远高于普通段落。',
       competitorText: `"${competitor.faqContent[0].question}" → "${competitor.faqContent[0].answer.slice(0, 60)}..."`,
@@ -2225,7 +2250,7 @@ export function generateComparisonPoints(
   const mainStepCount = main.lists.length;
   if (compStepCount > mainStepCount * 2 && compStepCount >= 4) {
     points.push({
-      topic: '诊断维度 6：步骤化/结构化内容不足',
+      topic: '诊断维度：步骤化/结构化内容不足',
       rationale:
         'AI 偏好以有序列表（步骤 1/2/3）组织操作类内容，列表结构让 AI 能按条摘录，形成"步骤型答案"。',
       competitorAnalysis: `对方页面包含 ${compStepCount} 组列表结构，操作说明被组织为可逐条引用的步骤链。`,
@@ -2234,7 +2259,11 @@ export function generateComparisonPoints(
     });
   }
 
-  return points;
+  // 按实际命中的顺序重新编号（未命中的维度不占号，保证"诊断维度 1/2/3..."连续）
+  return points.map((p, i) => ({
+    ...p,
+    topic: p.topic.replace(/^诊断维度：/, `诊断维度 ${i + 1}：`),
+  }));
 }
 
 // 简单内存缓存，避免同一页面被重复抓取解析
