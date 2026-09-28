@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import type { AltIssue, FAQIssue } from '@/lib/code-optimizer';
 import { generateFaqSchema } from '@/lib/code-optimizer';
+import { streamAltDescription } from '@/lib/ai-describe-client';
 import { cn } from '@/lib/utils';
 import { AltIssueItem } from './alt-issue-item';
 
@@ -45,6 +46,13 @@ export function CodeOptimizer({
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
   const [internalPrefix, setInternalPrefix] = useState('https://www.sonystyle.com.cn');
   const [modelName, setModelName] = useState('');
+  const [selectedIssues, setSelectedIssues] = useState<Set<number>>(new Set());
+  const [batchRunning, setBatchRunning] = useState(false);
+  const [batchProgress, setBatchProgress] = useState({ done: 0, total: 0 });
+  const [aiBusyIndex, setAiBusyIndex] = useState<number | null>(null);
+  const [aiErrors, setAiErrors] = useState<Record<number, string>>({});
+  const batchStopRef = useRef(false);
+  const lastDeltaAtRef = useRef(0);
 
   const imageUrlPrefix = externalPrefix ?? internalPrefix;
   const setPrefix = onImageUrlPrefixChange ?? setInternalPrefix;
@@ -70,6 +78,72 @@ export function CodeOptimizer({
   const handleAltEdit = useCallback((issueIndex: number, newAlt: string) => {
     setEditedAlts((prev) => ({ ...prev, [issueIndex]: newAlt }));
   }, []);
+
+  // 新一轮分析后清空勾选与错误状态
+  useEffect(() => {
+    setSelectedIssues(new Set());
+    setAiErrors({});
+  }, [altIssues]);
+
+  const handleToggleSelect = useCallback((idx: number) => {
+    setSelectedIssues((prev) => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+      return next;
+    });
+  }, []);
+
+  // 一键 AI 识图：按列表顺序逐张串行识别（识别中再次点击可停止）
+  const runBatchDescribe = useCallback(async () => {
+    if (batchRunning) {
+      batchStopRef.current = true;
+      return;
+    }
+    const targets = altIssues
+      .map((issue, idx) => ({ issue, idx }))
+      .filter(({ issue, idx }) => Boolean(issue.src) && selectedIssues.has(idx));
+    if (targets.length === 0) return;
+
+    batchStopRef.current = false;
+    setBatchRunning(true);
+    setBatchProgress({ done: 0, total: targets.length });
+    setAiErrors({});
+
+    let done = 0;
+    for (const { issue, idx } of targets) {
+      if (batchStopRef.current) break;
+      if (!issue.src) continue;
+      const fullSrc = issue.src.startsWith('http')
+        ? issue.src
+        : `${imageUrlPrefix}${issue.src}`;
+      setAiBusyIndex(idx);
+      try {
+        const text = await streamAltDescription({
+          imageUrl: fullSrc,
+          modelName: modelName || undefined,
+          // 流式增量写入编辑态（150ms 节流，避免高频重算优化代码面板）
+          onDelta: (acc) => {
+            const now = Date.now();
+            if (now - lastDeltaAtRef.current > 150) {
+              lastDeltaAtRef.current = now;
+              setEditedAlts((prev) => ({ ...prev, [idx]: acc }));
+            }
+          },
+        });
+        setEditedAlts((prev) => ({ ...prev, [idx]: text }));
+      } catch (err) {
+        setAiErrors((prev) => ({
+          ...prev,
+          [idx]: err instanceof Error ? err.message : 'AI 识图失败',
+        }));
+      }
+      done += 1;
+      setBatchProgress({ done, total: targets.length });
+    }
+    setAiBusyIndex(null);
+    setBatchRunning(false);
+  }, [batchRunning, altIssues, selectedIssues, imageUrlPrefix, modelName]);
 
   const applyAllAlts = useCallback(() => {
     let code = sourceCode;
@@ -165,12 +239,28 @@ export function CodeOptimizer({
               </svg>
               Alt 属性问题 ({altIssues.length})
             </h3>
-            <button
-              onClick={applyAllAlts}
-              className="px-4 py-1.5 bg-sky-500 text-white text-xs font-medium rounded-lg hover:bg-sky-600 transition-colors"
-            >
-              一键应用所有修改
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={runBatchDescribe}
+                disabled={!batchRunning && selectedIssues.size === 0}
+                className={cn(
+                  'px-4 py-1.5 text-xs font-medium rounded-lg transition-colors',
+                  batchRunning
+                    ? 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-100'
+                    : 'bg-violet-500 text-white hover:bg-violet-600 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed'
+                )}
+              >
+                {batchRunning
+                  ? `停止（${batchProgress.done}/${batchProgress.total}）`
+                  : `一键 AI 识图（已选 ${selectedIssues.size}）`}
+              </button>
+              <button
+                onClick={applyAllAlts}
+                className="px-4 py-1.5 bg-sky-500 text-white text-xs font-medium rounded-lg hover:bg-sky-600 transition-colors"
+              >
+                一键应用所有修改
+              </button>
+            </div>
           </div>
 
           {/* Tabs */}
@@ -243,8 +333,17 @@ export function CodeOptimizer({
                     originalIndex={originalIndex}
                     editedAlt={editedAlts[originalIndex]}
                     imageUrlPrefix={imageUrlPrefix}
-                    modelName={modelName}
+                    selected={selectedIssues.has(originalIndex)}
+                    aiStatus={
+                      aiBusyIndex === originalIndex
+                        ? 'generating'
+                        : aiErrors[originalIndex]
+                        ? 'error'
+                        : 'idle'
+                    }
+                    aiError={aiErrors[originalIndex]}
                     onAltEdit={handleAltEdit}
+                    onToggleSelect={handleToggleSelect}
                     onPreview={setPreviewSrc}
                   />
                 );

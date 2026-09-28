@@ -27,7 +27,7 @@ src/
 │   ├── dimension-detail.tsx    # 维度详情组件
 │   ├── score-gauge.tsx         # 分数仪表组件
 │   ├── code-optimizer.tsx      # 代码优化组件（alt 检测 + FAQ Schema）
-│   ├── alt-issue-item.tsx      # Alt 问题项（memoized + 防抖）
+│   ├── alt-issue-item.tsx      # Alt 问题项（左侧缩略图点击放大 + AI 识图勾选框，memoized + 防抖）
 │   └── optimization-modal.tsx  # Comparison Context 优化弹窗
 ├── lib/
 │   ├── geo-analyzer.ts         # GEO 分析引擎核心逻辑
@@ -63,5 +63,5 @@ src/
 - 代码建议组件使用深色主题，优化代码有左侧彩色边框区分
 - 原始代码默认折叠，点击可展开
 - PDF 导出使用 `html-to-image`，基于浏览器原生 SVG `<foreignObject>` 渲染，无需手动处理 `lab()`/`oklch()` 颜色转换
-- **AI 识图（/api/describe-image）**：POST `{ imageUrl, modelName? }`，SSE 流式返回 `{delta}`/`{done}`/`{error}`；服务端代理下载图片（带 UA/Referer 防盗链、解码 `&amp;` 实体、8MB 上限）转 base64 dataURI，调用 doubao-seed-2-0-lite 多模态模型；前端 fetch `body.getReader()` 逐帧渲染，手动编辑输入框会中止进行中的流
+- **AI 识图（/api/describe-image）**：POST `{ imageUrl, modelName? }`，SSE 流式返回 `{delta}`/`{done}`/`{error}`；服务端代理下载图片（带 UA/Referer 防盗链、解码 `&amp;` 实体、8MB 上限）转 base64 dataURI，调用 doubao-seed-2-0-lite 多模态模型；前端通过 `src/lib/ai-describe-client.ts` 的 `streamAltDescription`（fetch `body.getReader()` 逐帧解析 SSE）消费；列表项支持勾选多选后「一键 AI 识图」按列表顺序**串行**逐张识别（识别中按钮变「停止 N/M」可中断，流式增量 150ms 节流写入编辑态），批量完成后结果进入编辑态、参与「一键应用所有修改」
 - 雷达图组件使用 `forwardRef` 暴露 Chart 实例，供 PDF 导出使用 `toBase64Image()`
