@@ -44,6 +44,7 @@ export function CodeOptimizer({
   const [activeTab, setActiveTab] = useState<'sony' | 'other'>('sony');
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
   const [internalPrefix, setInternalPrefix] = useState('https://www.sonystyle.com.cn');
+  const [modelName, setModelName] = useState('');
 
   const imageUrlPrefix = externalPrefix ?? internalPrefix;
   const setPrefix = onImageUrlPrefixChange ?? setInternalPrefix;
@@ -198,18 +199,31 @@ export function CodeOptimizer({
             </button>
           </div>
 
-          {/* Image URL prefix input */}
-          <div className="px-5 py-3 border-b border-gray-100 bg-gray-50/50">
-            <label className="text-xs text-gray-600 font-medium mb-1.5 block">
-              图片 URL 前缀（用于预览）
-            </label>
-            <div className="flex gap-2">
+          {/* Image URL prefix + product model name inputs */}
+          <div className="px-5 py-3 border-b border-gray-100 bg-gray-50/50 grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-gray-600 font-medium mb-1.5 block">
+                图片 URL 前缀（用于预览）
+              </label>
               <input
                 type="text"
                 value={imageUrlPrefix}
                 onChange={(e) => setPrefix(e.target.value)}
-                className="flex-1 text-sm px-3 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400/20 font-mono"
+                className="w-full text-sm px-3 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400/20 font-mono"
                 placeholder="https://www.sonystyle.com.cn"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-gray-600 font-medium mb-1.5 block flex items-center gap-1">
+                产品型号名
+                <span className="text-gray-400 font-normal">（AI 识图描述时默认使用）</span>
+              </label>
+              <input
+                type="text"
+                value={modelName}
+                onChange={(e) => setModelName(e.target.value)}
+                className="w-full text-sm px-3 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:border-violet-400 focus:ring-1 focus:ring-violet-400/20"
+                placeholder="如：WH-CH730N"
               />
             </div>
           </div>
@@ -229,6 +243,7 @@ export function CodeOptimizer({
                     originalIndex={originalIndex}
                     editedAlt={editedAlts[originalIndex]}
                     imageUrlPrefix={imageUrlPrefix}
+                    modelName={modelName}
                     onAltEdit={handleAltEdit}
                     onPreview={setPreviewSrc}
                   />

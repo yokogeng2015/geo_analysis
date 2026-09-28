@@ -16,6 +16,7 @@ GEO Analyzer - Generative Engine Optimization 分析工具。从 Technical GEO �
 src/
 ── app/
 │   ├── api/analyze/route.ts    # GEO 分析 API
+│   ├── api/describe-image/route.ts # AI 识图生成 alt（SSE 流式，多模态 LLM）
 │   ├── layout.tsx              # 根布局
 │   ├── page.tsx                # 主页面（URL输入 + 结果展示）
 │   └── globals.css             # 全局样式
@@ -50,7 +51,7 @@ src/
 3. **Content GEO 分析**: Product Facts / Feature Explainability / User Intent / Q&A / Use Cases / Comparison Context / Evidence & Trust
 4. **雷达图可视化**: 使用 Chart.js 渲染两个雷达图（支持多站点对比叠加）
 5. **代码优化建议**: 使用 react-syntax-highlighter 展示优化代码，原始代码可折叠
-6. **代码优化模式**: 粘贴 HTML body，检测 alt 属性问题和 FAQ Schema 缺失
+6. **代码优化模式**: 粘贴 HTML body，检测 alt 属性问题和 FAQ Schema 缺失；支持 AI 识图生成 alt（输入型号名后，多模态 LLM 识别图片内容并按 Apple 官网风格生成描述）
 7. **竞品对比分析**: 基于双方页面真实内容生成对比点（场景化叙事 / 量化数据 / 结构化步骤），引用具体原文并解释 AI 理解差异
 8. **PDF 导出**: 使用 html-to-image（浏览器原生 SVG foreignObject 渲染）导出完整报告，完美支持 Tailwind v4 的 oklch/lab 颜色
 
@@ -62,4 +63,5 @@ src/
 - 代码建议组件使用深色主题，优化代码有左侧彩色边框区分
 - 原始代码默认折叠，点击可展开
 - PDF 导出使用 `html-to-image`，基于浏览器原生 SVG `<foreignObject>` 渲染，无需手动处理 `lab()`/`oklch()` 颜色转换
+- **AI 识图（/api/describe-image）**：POST `{ imageUrl, modelName? }`，SSE 流式返回 `{delta}`/`{done}`/`{error}`；服务端代理下载图片（带 UA/Referer 防盗链、解码 `&amp;` 实体、8MB 上限）转 base64 dataURI，调用 doubao-seed-2-0-lite 多模态模型；前端 fetch `body.getReader()` 逐帧渲染，手动编辑输入框会中止进行中的流
 - 雷达图组件使用 `forwardRef` 暴露 Chart 实例，供 PDF 导出使用 `toBase64Image()`
