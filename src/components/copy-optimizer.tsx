@@ -56,7 +56,7 @@ const PRINCIPLES: CopyPrinciple[] = [
     n: 4,
     title: '结构化易读',
     en: 'Structured Digestibility',
-    desc: '短句 + 要点列表，避免超过 4 行的长段落增加 AI 切分熵导致参数丢失',
+    desc: '仅当出现超过 4 行的长段落时才拆分为短句或要点列表，降低 AI 切分熵；原文已是简洁要点/短段落则保持原形态',
     bad: '本产品兼容最新的全画幅微单机型包括 Alpha 7 IV 和 Alpha 9 III 同时支持通过手机 App 快速传输照片和无线升级固件让您的拍摄工作流更加高效。',
     good: '生态兼容：适配 Alpha 7 IV、Alpha 9 III 等全画幅微单机型。\n无线传输：支持通过 Creators\' App 实现照片无线秒传与相机固件在线升级。',
   },
@@ -302,8 +302,8 @@ export function CopyOptimizer() {
       <div>
         <h2 className="text-xl font-bold text-gray-900 mb-1.5">GEO 文案优化</h2>
         <p className="text-sm text-gray-500">
-          粘贴产品描述文案或上传页面截图，AI 将从以下 4 个方向重写为更适合 GEO / AI
-          阅读与引用的版本，并在开头提炼总结性总起句（原文参数原样保留，不编造数据）
+          粘贴产品描述文案或上传页面截图，AI 将诊断原文后从以下 4 个方向中智能选用适用的组合进行优化（不强制拆点、保持原文形态），重写为更适合
+          GEO / AI 阅读与引用的版本，并在开头提炼总结性总起句（原文参数原样保留，不编造数据）
         </p>
       </div>
 
