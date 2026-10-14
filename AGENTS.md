@@ -17,6 +17,7 @@ src/
 ── app/
 │   ├── api/analyze/route.ts    # GEO 分析 API
 │   ├── api/describe-image/route.ts # AI 识图生成 alt（SSE 流式，多模态 LLM）
+│   ├── api/optimize-copy/route.ts  # GEO 文案优化（SSE 流式，4 大原则重写）
 │   ├── layout.tsx              # 根布局
 │   ├── page.tsx                # 主页面（URL输入 + 结果展示）
 │   └── globals.css             # 全局样式
@@ -27,6 +28,7 @@ src/
 │   ├── dimension-detail.tsx    # 维度详情组件
 │   ├── score-gauge.tsx         # 分数仪表组件
 │   ├── code-optimizer.tsx      # 代码优化组件（alt 检测 + FAQ Schema）
+│   ├── copy-optimizer.tsx      # 文案优化组件（4 大 GEO 原则 + 流式重写）
 │   ├── alt-issue-item.tsx      # Alt 问题项（左侧缩略图点击放大 + AI 识图勾选框，memoized + 防抖）
 │   └── optimization-modal.tsx  # Comparison Context 优化弹窗
 ├── lib/
@@ -52,6 +54,7 @@ src/
 4. **雷达图可视化**: 使用 Chart.js 渲染两个雷达图（支持多站点对比叠加）
 5. **代码优化建议**: 使用 react-syntax-highlighter 展示优化代码，原始代码可折叠
 6. **代码优化模式**: 粘贴 HTML body，检测 alt 属性问题和 FAQ Schema 缺失；支持 AI 识图生成 alt（输入型号名后，多模态 LLM 识别图片内容并按 Apple 官网风格生成描述）
+9. **文案优化模式（优化文案 tab）**: 粘贴描述文字，AI 按 4 大 GEO 原则重写（结论先行 / 场景驱动映射 / 实体精确 / 结构化易读），SSE 流式输出，原文参数原样保留
 7. **竞品对比分析**: 基于双方页面真实内容生成对比点（场景化叙事 / 量化数据 / 结构化步骤），引用具体原文并解释 AI 理解差异
 8. **PDF 导出**: 使用 html-to-image（浏览器原生 SVG foreignObject 渲染）导出完整报告，完美支持 Tailwind v4 的 oklch/lab 颜色
 
@@ -64,4 +67,5 @@ src/
 - 原始代码默认折叠，点击可展开
 - PDF 导出使用 `html-to-image`，基于浏览器原生 SVG `<foreignObject>` 渲染，无需手动处理 `lab()`/`oklch()` 颜色转换
 - **AI 识图（/api/describe-image）**：POST `{ imageUrl, modelName? }`，SSE 流式返回 `{delta}`/`{done}`/`{error}`；服务端代理下载图片（带 UA/Referer 防盗链、解码 `&amp;` 实体、8MB 上限）转 base64 dataURI，调用 doubao-seed-2-0-lite 多模态模型；前端通过 `src/lib/ai-describe-client.ts` 的 `streamAltDescription`（fetch `body.getReader()` 逐帧解析 SSE）消费；列表项支持勾选多选后「一键 AI 识图」按列表顺序**串行**逐张识别（识别中按钮变「停止 N/M」可中断，流式增量 150ms 节流写入编辑态），批量完成后结果进入编辑态、参与「一键应用所有修改」
+- **文案优化（/api/optimize-copy）**：POST `{ text, modelName? }`，SSE 流式返回 `{delta}`/`{done}`/`{error}`；系统提示词内嵌 4 大 GEO 文案原则（结论先行 30 字内 / 场景驱动三合一公式 / 实体精确替代营销话术 / 短句要点化），要求保留原文参数、禁止编造；前端组件 `copy-optimizer.tsx` 含 4 原则参考卡（❌反例/✅正例）、型号名输入、停止生成与一键复制
 - 雷达图组件使用 `forwardRef` 暴露 Chart 实例，供 PDF 导出使用 `toBase64Image()`
