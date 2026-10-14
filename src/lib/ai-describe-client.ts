@@ -1,25 +1,29 @@
 /**
- * 客户端：调用 /api/describe-image，SSE 流式生成 alt 描述。
- * 供单个/批量 AI 识图共同复用。
+ * 客户端：SSE 流式 LLM 接口通用消费工具。
+ * 供 AI 识图（describe-image）、截图文字提取（extract-text）等复用。
  */
-export interface StreamAltOptions {
-  imageUrl: string;
-  modelName?: string;
+
+interface StreamTextOptions {
+  endpoint: string;
+  body: Record<string, unknown>;
   signal?: AbortSignal;
   /** 每收到一个增量块回调（参数为当前累计全文），用于流式渲染 */
   onDelta?: (fullText: string) => void;
+  /** 流结束后对累计全文的校验/提示文案，空结果时抛错 */
+  emptyMessage?: string;
 }
 
-export async function streamAltDescription({
-  imageUrl,
-  modelName,
+export async function streamText({
+  endpoint,
+  body,
   signal,
   onDelta,
-}: StreamAltOptions): Promise<string> {
-  const res = await fetch('/api/describe-image', {
+  emptyMessage = 'AI 未返回有效内容，请重试',
+}: StreamTextOptions): Promise<string> {
+  const res = await fetch(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ imageUrl, modelName: modelName || undefined }),
+    body: JSON.stringify(body),
     signal,
   });
 
@@ -63,6 +67,22 @@ export async function streamAltDescription({
   }
 
   const text = acc.trim();
-  if (!text) throw new Error('AI 未返回有效描述，请重试');
+  if (!text) throw new Error(emptyMessage);
   return text;
+}
+
+/** 调用 /api/describe-image，流式生成图片 alt 描述（单个/批量 AI 识图共用） */
+export function streamAltDescription(options: {
+  imageUrl: string;
+  modelName?: string;
+  signal?: AbortSignal;
+  onDelta?: (fullText: string) => void;
+}): Promise<string> {
+  return streamText({
+    endpoint: '/api/describe-image',
+    body: { imageUrl: options.imageUrl, modelName: options.modelName || undefined },
+    signal: options.signal,
+    onDelta: options.onDelta,
+    emptyMessage: 'AI 未返回有效描述，请重试',
+  });
 }

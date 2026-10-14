@@ -17,7 +17,8 @@ src/
 ── app/
 │   ├── api/analyze/route.ts    # GEO 分析 API
 │   ├── api/describe-image/route.ts # AI 识图生成 alt（SSE 流式，多模态 LLM）
-│   ├── api/optimize-copy/route.ts  # GEO 文案优化（SSE 流式，4 大原则重写）
+│   ├── api/optimize-copy/route.ts  # GEO 文案优化（SSE 流式，4 大原则 + 总结性总起句）
+│   ├── api/extract-text/route.ts   # 截图 OCR 提取文案（SSE 流式，多模态 LLM）
 │   ├── layout.tsx              # 根布局
 │   ├── page.tsx                # 主页面（URL输入 + 结果展示）
 │   └── globals.css             # 全局样式
@@ -67,5 +68,7 @@ src/
 - 原始代码默认折叠，点击可展开
 - PDF 导出使用 `html-to-image`，基于浏览器原生 SVG `<foreignObject>` 渲染，无需手动处理 `lab()`/`oklch()` 颜色转换
 - **AI 识图（/api/describe-image）**：POST `{ imageUrl, modelName? }`，SSE 流式返回 `{delta}`/`{done}`/`{error}`；服务端代理下载图片（带 UA/Referer 防盗链、解码 `&amp;` 实体、8MB 上限）转 base64 dataURI，调用 doubao-seed-2-0-lite 多模态模型；前端通过 `src/lib/ai-describe-client.ts` 的 `streamAltDescription`（fetch `body.getReader()` 逐帧解析 SSE）消费；列表项支持勾选多选后「一键 AI 识图」按列表顺序**串行**逐张识别（识别中按钮变「停止 N/M」可中断，流式增量 150ms 节流写入编辑态），批量完成后结果进入编辑态、参与「一键应用所有修改」
-- **文案优化（/api/optimize-copy）**：POST `{ text, modelName? }`，SSE 流式返回 `{delta}`/`{done}`/`{error}`；系统提示词内嵌 4 大 GEO 文案原则（结论先行 30 字内 / 场景驱动三合一公式 / 实体精确替代营销话术 / 短句要点化），要求保留原文参数、禁止编造；前端组件 `copy-optimizer.tsx` 含 4 原则参考卡（❌反例/✅正例）、型号名输入、停止生成与一键复制
+- **文案优化（/api/optimize-copy）**：POST `{ text, modelName? }`，SSE 流式返回 `{delta}`/`{done}`/`{error}`；系统提示词内嵌 4 大 GEO 文案原则（结论先行 30 字内 / 场景驱动三合一公式 / 实体精确替代营销话术 / 短句要点化）+ 总结性总起规则（输出第一行必须是通读全文后综合提炼的总起句，30 字内，禁止照搬原文某条要点），输出结构固定为"总起句 → 空行 → 正文"；要求保留原文参数、禁止编造；前端组件 `copy-optimizer.tsx` 含 4 原则参考卡（❌反例/✅正例）、型号名输入、停止生成与一键复制；输出区首行渲染为总起句高亮块（violet 左边框）
+- **截图提取（/api/extract-text）**：POST `{ imageData }`（dataURI 或图片 URL，服务端代理下载带 UA 防盗链、8MB 上限），多模态 LLM 按原始顺序逐行提取截图中产品描述文字（忽略导航/按钮/水印，保留 *1 上标），SSE 流式返回；无文字时输出 `[未识别到文字]`；前端 `copy-optimizer.tsx` 支持上传按钮 / Ctrl+V 粘贴 / 拖拽截图（>1.5MB 时 canvas 压缩到 2000px），流程：截图 → 提取文字填充原文区（可编辑）→ 4 原则优化；「仅提取文字」按钮可单独执行第一步
+- **客户端流式工具（src/lib/ai-describe-client.ts）**：通用 `streamText({ endpoint, body, signal, onDelta })` 解析 SSE `{delta}`/`{error}` 事件；`streamAltDescription` 为其 describe-image 封装
 - 雷达图组件使用 `forwardRef` 暴露 Chart 实例，供 PDF 导出使用 `toBase64Image()`
