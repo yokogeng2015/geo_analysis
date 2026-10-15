@@ -101,6 +101,8 @@ async function fileToDataUri(file: File): Promise<string> {
 export function CopyOptimizer() {
   const [sourceText, setSourceText] = useState('');
   const [modelName, setModelName] = useState('');
+  // 副标题开关：默认不生成（勾选后标题模式输出 [SUBTITLE] 行）
+  const [includeSubtitle, setIncludeSubtitle] = useState(false);
   const [output, setOutput] = useState('');
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState('');
@@ -228,7 +230,7 @@ export function CopyOptimizer() {
       try {
         const result = await streamText({
           endpoint: '/api/optimize-copy',
-          body: { text, modelName: modelName.trim() || undefined },
+          body: { text, modelName: modelName.trim() || undefined, includeSubtitle },
           signal,
           onDelta: (acc) => setOutput(acc),
           emptyMessage: 'AI 未返回优化结果，请重试',
@@ -242,7 +244,7 @@ export function CopyOptimizer() {
         setGenerating(false);
       }
     },
-    [modelName]
+    [modelName, includeSubtitle]
   );
 
   const handleOptimize = useCallback(async () => {
@@ -442,6 +444,19 @@ export function CopyOptimizer() {
               className="flex-1 px-3 py-1.5 text-sm rounded-lg border border-gray-200 outline-none focus:ring-2 focus:ring-violet-200 focus:border-violet-300 bg-white"
             />
           </div>
+          <label
+            className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none shrink-0"
+            title="开启后标题模式下会额外生成一行能力域副标题（如“影像处理”）"
+          >
+            <input
+              type="checkbox"
+              checked={includeSubtitle}
+              onChange={(e) => setIncludeSubtitle(e.target.checked)}
+              disabled={busy}
+              className="w-4 h-4 accent-violet-500 rounded"
+            />
+            生成副标题
+          </label>
           {imageData && !busy && (
             <button
               onClick={handleExtractOnly}
