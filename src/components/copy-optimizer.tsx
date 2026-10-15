@@ -280,21 +280,33 @@ export function CopyOptimizer() {
     setImageName('');
   }, [busy]);
 
+  // ---- 输出拆分：两种形态 ----
+  // A. 标题模式（原文含标题+正文结构）：[SUBTITLE] 副标题 / [TITLE] 主标题 / [BODY] 正文
+  // B. 总起模式：首行 = 总结性总起句，其余 = 正文
+  const titleMode = /^\[(SUBTITLE|TITLE)\]/.test(output);
+  const firstBreak = output.indexOf('\n');
+  const bodyMarkerIdx = output.indexOf('[BODY]');
+  const subtitle = titleMode ? (output.match(/\[SUBTITLE\][ \t]*([^\n]*)/)?.[1] ?? '').trim() : '';
+  const mainTitle = titleMode ? (output.match(/\[TITLE\][ \t]*([^\n]*)/)?.[1] ?? '').trim() : '';
+  const titleBody = titleMode ? (bodyMarkerIdx === -1 ? '' : output.slice(bodyMarkerIdx + 6).replace(/^\s+/, '')) : '';
+  const lead = titleMode ? '' : firstBreak === -1 ? output : output.slice(0, firstBreak);
+  const body = titleMode ? '' : firstBreak === -1 ? '' : output.slice(firstBreak + 1).replace(/^\s+/, '');
+
+  // 复制文本：标题模式剥离结构标记，还原为 副标题/主标题/正文 的纯文本层级
+  const copyText = titleMode
+    ? `${subtitle ? subtitle + '\n' : ''}${mainTitle}${titleBody ? '\n\n' + titleBody : ''}`.trim()
+    : output;
+
   const handleCopy = useCallback(async () => {
     if (!output) return;
     try {
-      await navigator.clipboard.writeText(output);
+      await navigator.clipboard.writeText(copyText);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
       setError('复制失败，请手动选择文本复制');
     }
-  }, [output]);
-
-  // ---- 输出拆分：首行 = 总结性总起句，其余 = 正文 ----
-  const newlineIdx = output.indexOf('\n');
-  const lead = newlineIdx === -1 ? output : output.slice(0, newlineIdx);
-  const body = newlineIdx === -1 ? '' : output.slice(newlineIdx + 1).replace(/^\s+/, '');
+  }, [output, copyText]);
 
   return (
     <div className="space-y-6">
@@ -493,7 +505,9 @@ export function CopyOptimizer() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
               优化结果（GEO 版）
-              <span className="text-xs font-normal text-gray-400">首行为 AI 综合提炼的总起句</span>
+              <span className="text-xs font-normal text-gray-400">
+                {titleMode ? '副标题 / 主标题 / 正文 苹果式层级' : '首行为 AI 综合提炼的总起句'}
+              </span>
             </span>
             <button
               onClick={handleCopy}
@@ -504,21 +518,52 @@ export function CopyOptimizer() {
             </button>
           </div>
           <div className="px-5 py-4 space-y-3">
-            {lead && (
-              <div className="rounded-lg bg-violet-50 border-l-4 border-violet-400 px-4 py-3 text-[15px] font-semibold text-gray-900 leading-relaxed">
-                {renderBoldText(lead)}
-                {generating && newlineIdx === -1 && (
-                  <span className="inline-block w-2 h-4 ml-0.5 bg-violet-400 align-text-bottom animate-pulse" />
+            {titleMode ? (
+              <>
+                {subtitle && (
+                  <div className="text-sm font-semibold text-gray-500">
+                    {renderBoldText(subtitle)}
+                    {generating && !mainTitle && !titleBody && (
+                      <span className="inline-block w-2 h-4 ml-0.5 bg-violet-400 align-text-bottom animate-pulse" />
+                    )}
+                  </div>
                 )}
-              </div>
-            )}
-            {(body || (generating && newlineIdx !== -1)) && (
-              <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap break-words">
-                {renderBoldText(body)}
-                {generating && newlineIdx !== -1 && (
-                  <span className="inline-block w-2 h-4 ml-0.5 bg-violet-400 align-text-bottom animate-pulse" />
+                {mainTitle && (
+                  <h3 className="text-2xl md:text-[28px] font-bold tracking-tight text-gray-900 leading-snug">
+                    {renderBoldText(mainTitle)}
+                    {generating && !titleBody && (
+                      <span className="inline-block w-2 h-5 ml-1 bg-violet-400 align-text-bottom animate-pulse" />
+                    )}
+                  </h3>
                 )}
-              </div>
+                {(titleBody || (generating && bodyMarkerIdx !== -1)) && (
+                  <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap break-words pt-1">
+                    {renderBoldText(titleBody)}
+                    {generating && bodyMarkerIdx !== -1 && (
+                      <span className="inline-block w-2 h-4 ml-0.5 bg-violet-400 align-text-bottom animate-pulse" />
+                    )}
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                {lead && (
+                  <div className="rounded-lg bg-violet-50 border-l-4 border-violet-400 px-4 py-3 text-[15px] font-semibold text-gray-900 leading-relaxed">
+                    {renderBoldText(lead)}
+                    {generating && firstBreak === -1 && (
+                      <span className="inline-block w-2 h-4 ml-0.5 bg-violet-400 align-text-bottom animate-pulse" />
+                    )}
+                  </div>
+                )}
+                {(body || (generating && firstBreak !== -1)) && (
+                  <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap break-words">
+                    {renderBoldText(body)}
+                    {generating && firstBreak !== -1 && (
+                      <span className="inline-block w-2 h-4 ml-0.5 bg-violet-400 align-text-bottom animate-pulse" />
+                    )}
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
