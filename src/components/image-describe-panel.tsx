@@ -13,6 +13,12 @@ interface DescribeImage {
   error?: string;
 }
 
+const FALLBACK_IMG =
+  'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect fill="%23f3f4f6" width="400" height="300"/><text fill="%239ca3af" x="50%" y="50%" text-anchor="middle" dy=".3em">图片加载失败</text></svg>';
+
+/** URL 输入框合法值：http/https 绝对地址或 data:image */
+const URL_INPUT_RE = /^(?:https?:\/\/\S+|data:image\/\S+)$/i;
+
 /**
  * 「直接识图生成描述」面板：上传 / Ctrl+V 粘贴 / 拖拽任意图片，
  * 调用多模态 LLM（SSE 流式）生成 Apple 官网风格 alt 描述，可编辑、复制。
@@ -24,6 +30,7 @@ export const ImageDescribePanel = memo(function ImageDescribePanel() {
   const [dragging, setDragging] = useState(false);
   const [modelName, setModelName] = useState('');
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
+  const [urlInput, setUrlInput] = useState('');
   const idRef = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const abortMapRef = useRef<Map<number, AbortController>>(new Map());
@@ -49,6 +56,15 @@ export const ImageDescribePanel = memo(function ImageDescribePanel() {
     },
     []
   );
+
+  // 添加图片 URL（http/https 或 data:image），识别时由服务端代理下载
+  const addUrl = useCallback(() => {
+    const url = urlInput.trim();
+    if (!url || !URL_INPUT_RE.test(url)) return;
+    const id = ++idRef.current;
+    setImages((prev) => [...prev, { id, dataUrl: url, description: '', status: 'idle' }]);
+    setUrlInput('');
+  }, [urlInput]);
 
   // Ctrl+V 粘贴图片
   useEffect(() => {
@@ -133,7 +149,7 @@ export const ImageDescribePanel = memo(function ImageDescribePanel() {
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <Sparkles className="h-4 w-4 text-sky-600" />
         <h3 className="text-sm font-semibold text-gray-800">直接识图生成描述</h3>
-        <span className="text-xs text-gray-400">上传 / Ctrl+V 粘贴 / 拖拽图片，AI 生成 Apple 风格 alt 描述</span>
+        <span className="text-xs text-gray-400">上传 / 贴图片 URL / Ctrl+V / 拖拽，AI 生成 Apple 风格 alt 描述</span>
         <input
           type="text"
           value={modelName}
@@ -174,17 +190,39 @@ export const ImageDescribePanel = memo(function ImageDescribePanel() {
           (dragging ? 'border-sky-400 bg-sky-50/60' : 'border-gray-200')
         }
       >
+        {/* 图片 URL 输入行：粘贴 URL 直接添加（识别时由服务端代理下载，绕过防盗链） */}
+        <div className="flex gap-2 p-3">
+          <input
+            type="text"
+            value={urlInput}
+            onChange={(e) => setUrlInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') addUrl();
+            }}
+            placeholder="粘贴图片 URL，如 https://www.sonystyle.com.cn/.../pc1_01.jpg"
+            className="flex-1 min-w-0 text-sm px-3 py-2 border border-gray-200 rounded-lg font-mono text-gray-700 placeholder:font-sans placeholder:text-gray-400 focus:outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400/20"
+          />
+          <button
+            type="button"
+            onClick={addUrl}
+            disabled={!URL_INPUT_RE.test(urlInput.trim())}
+            className="flex-shrink-0 rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400"
+          >
+            添加
+          </button>
+        </div>
+
         {images.length === 0 ? (
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="flex w-full flex-col items-center gap-2 rounded-lg px-4 py-8 text-gray-500 transition-colors hover:bg-sky-50/60 hover:text-sky-600"
+            className="flex w-full flex-col items-center gap-2 rounded-b-lg border-t border-dashed border-gray-200 px-4 py-6 text-gray-500 transition-colors hover:bg-sky-50/60 hover:text-sky-600"
           >
             <Upload className="h-5 w-5" />
             <span className="text-sm">点击上传图片，或直接拖拽 / Ctrl+V 粘贴到此区域</span>
           </button>
         ) : (
-          <ul className="divide-y divide-gray-100">
+          <ul className="divide-y divide-gray-100 border-t border-dashed border-gray-200">
             {images.map((img) => (
               <li key={img.id} className="flex gap-3 p-3">
                 {/* 缩略图：点击放大 */}
@@ -198,6 +236,10 @@ export const ImageDescribePanel = memo(function ImageDescribePanel() {
                   <img
                     src={img.dataUrl}
                     alt="待识别图片"
+                    loading="lazy"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = FALLBACK_IMG;
+                    }}
                     className="h-full w-full object-contain group-hover:scale-105"
                   />
                 </button>
@@ -300,7 +342,14 @@ export const ImageDescribePanel = memo(function ImageDescribePanel() {
             </div>
             <div className="p-5">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={previewSrc} alt="预览图片" className="max-w-full h-auto rounded-lg" />
+              <img
+                src={previewSrc}
+                alt="预览图片"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = FALLBACK_IMG;
+                }}
+                className="max-w-full h-auto rounded-lg"
+              />
               <p className="mt-3 text-xs text-gray-500 break-all">{previewSrc.slice(0, 120)}{previewSrc.length > 120 ? '…' : ''}</p>
             </div>
           </div>
