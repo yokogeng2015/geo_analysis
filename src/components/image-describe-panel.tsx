@@ -13,24 +13,17 @@ interface DescribeImage {
   error?: string;
 }
 
-interface ImageDescribePanelProps {
-  /** 用户输入的型号名，识图描述需要型号时使用 */
-  modelName: string;
-  /** 点击缩略图放大预览 */
-  onPreview: (src: string) => void;
-}
-
 /**
  * 「直接识图生成描述」面板：上传 / Ctrl+V 粘贴 / 拖拽任意图片，
  * 调用多模态 LLM（SSE 流式）生成 Apple 官网风格 alt 描述，可编辑、复制。
+ * 自带「产品型号名（选填）」输入与图片放大预览弹窗，可独立于 HTML 解析使用。
  */
-export const ImageDescribePanel = memo(function ImageDescribePanel({
-  modelName,
-  onPreview,
-}: ImageDescribePanelProps) {
+export const ImageDescribePanel = memo(function ImageDescribePanel() {
   const [images, setImages] = useState<DescribeImage[]>([]);
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [modelName, setModelName] = useState('');
+  const [previewSrc, setPreviewSrc] = useState<string | null>(null);
   const idRef = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const abortMapRef = useRef<Map<number, AbortController>>(new Map());
@@ -137,10 +130,17 @@ export const ImageDescribePanel = memo(function ImageDescribePanel({
 
   return (
     <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-      <div className="mb-3 flex items-center gap-2">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
         <Sparkles className="h-4 w-4 text-sky-600" />
         <h3 className="text-sm font-semibold text-gray-800">直接识图生成描述</h3>
         <span className="text-xs text-gray-400">上传 / Ctrl+V 粘贴 / 拖拽图片，AI 生成 Apple 风格 alt 描述</span>
+        <input
+          type="text"
+          value={modelName}
+          onChange={(e) => setModelName(e.target.value)}
+          placeholder="产品型号名（选填，如 WH-CH730N）"
+          className="ml-auto w-52 text-xs px-2.5 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400/20"
+        />
       </div>
 
       <input
@@ -190,7 +190,7 @@ export const ImageDescribePanel = memo(function ImageDescribePanel({
                 {/* 缩略图：点击放大 */}
                 <button
                   type="button"
-                  onClick={() => onPreview(img.dataUrl)}
+                  onClick={() => setPreviewSrc(img.dataUrl)}
                   className="group h-12 w-16 flex-shrink-0 overflow-hidden rounded border border-gray-200 bg-gray-50 transition-colors hover:border-sky-400"
                   title="点击放大预览"
                 >
@@ -277,6 +277,33 @@ export const ImageDescribePanel = memo(function ImageDescribePanel({
             共 {images.length} 张
           </span>
           <span>描述可直接编辑后复制</span>
+        </div>
+      )}
+
+      {/* 图片放大预览 */}
+      {previewSrc && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setPreviewSrc(null)}
+        >
+          <div
+            className="bg-white rounded-xl max-w-4xl max-h-[90vh] overflow-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200">
+              <h3 className="font-semibold text-gray-900 text-sm">图片预览</h3>
+              <button onClick={() => setPreviewSrc(null)} className="text-gray-400 hover:text-gray-600">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-5">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={previewSrc} alt="预览图片" className="max-w-full h-auto rounded-lg" />
+              <p className="mt-3 text-xs text-gray-500 break-all">{previewSrc.slice(0, 120)}{previewSrc.length > 120 ? '…' : ''}</p>
+            </div>
+          </div>
         </div>
       )}
     </section>

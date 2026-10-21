@@ -7,6 +7,7 @@ import { CodeSuggestionCard } from '@/components/code-suggestion-card';
 import { DimensionDetail } from '@/components/dimension-detail';
 import { ScoreGauge } from '@/components/score-gauge';
 import { CodeOptimizer } from '@/components/code-optimizer';
+import { ImageDescribePanel } from '@/components/image-describe-panel';
 import { CopyOptimizer } from '@/components/copy-optimizer';
 import { OptimizationModal } from '@/components/optimization-modal';
 import { analyzeHTMLCode } from '@/lib/code-optimizer';
@@ -850,6 +851,11 @@ export default function Home() {
                 </div>
               )}
             </section>
+
+            {/* 直接识图生成描述：常驻显示，独立于 HTML 解析（上传 / 粘贴 / 拖拽图片 → AI 流式生成描述） */}
+            <div className="mb-8">
+              <ImageDescribePanel />
+            </div>
 
             {/* Code optimization results */}
             {codeResult && (
