@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { streamText } from '@/lib/ai-describe-client';
+import { fileToCompressedDataUri } from '@/lib/image-client';
 
 /** 渲染 **加粗** 的轻量 markdown（输出文案中的分组标签） */
 function renderBoldText(text: string) {
@@ -65,39 +66,6 @@ const PRINCIPLES: CopyPrinciple[] = [
 const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
 const NO_TEXT_MARKER = '[未识别到文字]';
 
-/** 读取截图为 dataURI；超过 1.5MB 时用 canvas 压到最长边 2000px（JPEG 90%）再返回 */
-async function fileToDataUri(file: File): Promise<string> {
-  const readAsDataUri = () =>
-    new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = () => reject(new Error('读取截图失败'));
-      reader.readAsDataURL(file);
-    });
-
-  if (file.size <= 1.5 * 1024 * 1024) return readAsDataUri();
-
-  const objectUrl = URL.createObjectURL(file);
-  try {
-    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-      const el = new Image();
-      el.onload = () => resolve(el);
-      el.onerror = () => reject(new Error('截图解析失败'));
-      el.src = objectUrl;
-    });
-    const scale = Math.min(1, 2000 / Math.max(img.naturalWidth, img.naturalHeight));
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
-    canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return readAsDataUri();
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    return canvas.toDataURL('image/jpeg', 0.9);
-  } finally {
-    URL.revokeObjectURL(objectUrl);
-  }
-}
-
 export function CopyOptimizer() {
   const [sourceText, setSourceText] = useState('');
   const [modelName, setModelName] = useState('');
@@ -129,7 +97,7 @@ export function CopyOptimizer() {
     }
     setError('');
     try {
-      const dataUri = await fileToDataUri(file);
+      const dataUri = await fileToCompressedDataUri(file);
       setImageData(dataUri);
       setImageName(file.name || '剪贴板截图');
       setCopied(false);

@@ -64,50 +64,64 @@ export async function POST(request: NextRequest) {
   const imageUrl = decodeHtmlEntities(rawUrl);
   const modelName = (body.modelName ?? '').trim().slice(0, 60);
 
-  if (!imageUrl || !/^https?:\/\//i.test(imageUrl)) {
-    return jsonError('imageUrl 必须是 http/https 绝对地址', 400);
+  const isDataUri = /^data:image\//i.test(imageUrl);
+  if (!imageUrl || (!isDataUri && !/^https?:\/\//i.test(imageUrl))) {
+    return jsonError('imageUrl 必须是 http/https 绝对地址或 data:image 图片', 400);
   }
 
-  // ---- 服务端代理下载图片（绕过防盗链，转为 base64 供多模态模型识别） ----
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), IMAGE_FETCH_TIMEOUT);
-  let imageBytes: Buffer;
-  let contentType: string;
-  try {
-    const origin = new URL(imageUrl).origin;
-    const imgRes = await fetch(imageUrl, {
-      signal: controller.signal,
-      redirect: 'follow',
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
-        Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
-        Referer: origin + '/',
-      },
-    });
-    if (!imgRes.ok) {
-      return jsonError(`图片下载失败（HTTP ${imgRes.status}），请检查 URL 前缀是否正确`, 502);
-    }
-    contentType = imgRes.headers.get('content-type') ?? '';
-    const arrayBuffer = await imgRes.arrayBuffer();
-    if (arrayBuffer.byteLength === 0) {
-      return jsonError('图片内容为空', 502);
-    }
-    if (arrayBuffer.byteLength > MAX_IMAGE_BYTES) {
+  let dataUri: string;
+  if (isDataUri) {
+    // 前端上传/粘贴的图片：直接使用 dataURI（base64 长度校验，对应 8MB 二进制上限）
+    const maxBase64Len = Math.ceil((MAX_IMAGE_BYTES * 4) / 3) + 256;
+    if (imageUrl.length > maxBase64Len) {
       return jsonError('图片过大（超过 8MB），无法识别', 413);
     }
-    imageBytes = Buffer.from(arrayBuffer);
-  } catch (err) {
-    const msg = err instanceof Error && err.name === 'AbortError' ? '图片下载超时' : '图片下载失败，请检查图片地址是否可访问';
-    return jsonError(msg, 502);
-  } finally {
-    clearTimeout(timer);
-  }
+    dataUri = imageUrl;
+  } else {
+    // ---- 服务端代理下载图片（绕过防盗链，转为 base64 供多模态模型识别） ----
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), IMAGE_FETCH_TIMEOUT);
+    let imageBytes: Buffer;
+    let contentType: string;
+    try {
+      const origin = new URL(imageUrl).origin;
+      const imgRes = await fetch(imageUrl, {
+        signal: controller.signal,
+        redirect: 'follow',
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+          Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+          Referer: origin + '/',
+        },
+      });
+      if (!imgRes.ok) {
+        return jsonError(`图片下载失败（HTTP ${imgRes.status}），请检查 URL 前缀是否正确`, 502);
+      }
+      contentType = imgRes.headers.get('content-type') ?? '';
+      const arrayBuffer = await imgRes.arrayBuffer();
+      if (arrayBuffer.byteLength === 0) {
+        return jsonError('图片内容为空', 502);
+      }
+      if (arrayBuffer.byteLength > MAX_IMAGE_BYTES) {
+        return jsonError('图片过大（超过 8MB），无法识别', 413);
+      }
+      imageBytes = Buffer.from(arrayBuffer);
+    } catch (err) {
+      const msg =
+        err instanceof Error && err.name === 'AbortError'
+          ? '图片下载超时'
+          : '图片下载失败，请检查图片地址是否可访问';
+      return jsonError(msg, 502);
+    } finally {
+      clearTimeout(timer);
+    }
 
-  const mime = contentType.startsWith('image/')
-    ? contentType.split(';')[0].trim()
-    : guessMimeFromUrl(imageUrl);
-  const dataUri = `data:${mime};base64,${imageBytes.toString('base64')}`;
+    const mime = contentType.startsWith('image/')
+      ? contentType.split(';')[0].trim()
+      : guessMimeFromUrl(imageUrl);
+    dataUri = `data:${mime};base64,${imageBytes.toString('base64')}`;
+  }
 
   // ---- 调用多模态 LLM，SSE 流式返回 alt 描述 ----
   const customHeaders = HeaderUtils.extractForwardHeaders(request.headers);

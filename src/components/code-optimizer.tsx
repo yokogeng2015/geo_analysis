@@ -6,6 +6,7 @@ import { generateFaqSchema } from '@/lib/code-optimizer';
 import { streamAltDescription } from '@/lib/ai-describe-client';
 import { cn } from '@/lib/utils';
 import { AltIssueItem } from './alt-issue-item';
+import { ImageDescribePanel } from './image-describe-panel';
 
 interface CodeOptimizerProps {
   sourceCode: string;
@@ -228,6 +229,9 @@ export function CodeOptimizer({
           </p>
         </div>
       </div>
+
+      {/* 直接识图生成描述：上传 / 粘贴 / 拖拽任意图片，AI 流式生成 alt 风格描述 */}
+      <ImageDescribePanel modelName={modelName} onPreview={setPreviewSrc} />
 
       {/* Alt issues list with tabs */}
       {altIssues.length > 0 && (
