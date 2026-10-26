@@ -66,7 +66,7 @@ export const TECHNICAL_DIMENSIONS_CN: Record<string, string> = {
   'Semantic Structure': '标题/框架结构',
   'Entity & Schema': 'AI专属信息结构(schema)',
   'Internal Context': '产品关联性(推荐/配件)',
-  'Metadata & AI Signals': '图片描述(alt)',
+  'Metadata & AI Signals': '商品信息',
 };
 
 export const CONTENT_DIMENSIONS = [
