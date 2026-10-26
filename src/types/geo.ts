@@ -61,12 +61,12 @@ export const TECHNICAL_DIMENSIONS = [
 ] as const;
 
 export const TECHNICAL_DIMENSIONS_CN: Record<string, string> = {
-  'Crawlability': '可爬取性',
-  'Content Accessibility': '内容可访问性',
-  'Semantic Structure': '语义结构(h1)',
-  'Entity & Schema': '实体与结构化数据(schema)',
-  'Internal Context': '内部页面关联(推荐/关联)',
-  'Metadata & AI Signals': '元数据与 AI 信号(title/alt)',
+  'Crawlability': '信源爬取性能',
+  'Content Accessibility': '内容可识别性',
+  'Semantic Structure': '标题/框架结构',
+  'Entity & Schema': 'AI专属信息结构(schema)',
+  'Internal Context': '产品关联性(推荐/配件)',
+  'Metadata & AI Signals': '图片描述(alt)',
 };
 
 export const CONTENT_DIMENSIONS = [
