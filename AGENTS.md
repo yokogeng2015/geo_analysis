@@ -53,6 +53,9 @@ src/
 ## 核心功能
 1. **URL 输入与分析**: 用户输入 URL，后端抓取页面 HTML 并分析
 2. **Technical GEO 分析**: Crawlability / Content Accessibility / Semantic Structure / Entity & Schema / Internal Context / Metadata & AI Signals
+   - **维度去重原则**：H1 唯一归属 Semantic Structure（缺失 -20 / 多个 H1 -10），Content Accessibility 不再评 H1
+   - **Content Accessibility**：聚焦 alt 有效性（按覆盖率比例计分，权重 50：`score -= round(无效数/总数 * 50)`，有效 = alt 存在且非 isMeaninglessAlt，与代码优化 tab 同一标准）+ 文字量（<300 词 -20）+ 结构化列表（-10）
+   - **Semantic Structure**：H1/H2/H3 层级 + 多 H1 检查 + HTML5 语义标签 + 层级跳跃
 3. **Content GEO 分析**: Product Facts / Feature Explainability / User Intent / Q&A / Use Cases / Comparison Context / Evidence & Trust
 4. **雷达图可视化**: 使用 Chart.js 渲染两个雷达图（支持多站点对比叠加）
 5. **代码优化建议**: 使用 react-syntax-highlighter 展示优化代码，原始代码可折叠

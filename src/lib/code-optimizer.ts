@@ -63,7 +63,8 @@ const BRAND_NAMES = [
   'apple', '华为', '小米', '三星', '索尼', 'oppo', 'vivo', '荣耀',
 ];
 
-function isMeaninglessAlt(alt: string): boolean {
+/** 判断 alt 是否无意义（空占位词 / 过短 / 纯型号名等）；geo-analyzer 分析引擎复用同一标准 */
+export function isMeaninglessAlt(alt: string): boolean {
   const trimmed = alt.trim();
   const lower = trimmed.toLowerCase();
 

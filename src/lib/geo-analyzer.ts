@@ -6,6 +6,7 @@ import type {
   DimensionScore,
   IntentGap,
 } from '@/types/geo';
+import { isMeaninglessAlt } from './code-optimizer';
 
 interface ParsedPage {
   url: string;
@@ -326,14 +327,29 @@ function analyzeContentAccessibility(
   const suggestions: string[] = [];
   let score = 100;
 
-  // Check images without alt
-  const imagesWithoutAlt = page.images.filter((img) => !img.alt);
-  if (imagesWithoutAlt.length > 0) {
-    issues.push(
-      `${imagesWithoutAlt.length} 张图片缺少 alt 属性，影响内容可访问性`
-    );
-    suggestions.push('为所有图片添加描述性的 alt 属性');
-    score -= Math.min(30, imagesWithoutAlt.length * 10);
+  // alt 有效性按覆盖率比例计分（权重 50）：10 张图 5 张有效 → 75 分，4 张有效 → 70 分
+  // 覆盖率越高得分越高，避免「一张缺 alt 就重扣」；有效 = alt 存在且非无意义（与代码优化 tab 同一判断标准）
+  const totalImages = page.images.length;
+  if (totalImages > 0) {
+    const missingAlt = page.images.filter((img) => img.alt.trim() === '').length;
+    const meaninglessAlt = page.images.filter(
+      (img) => img.alt.trim() !== '' && isMeaninglessAlt(img.alt)
+    ).length;
+    const invalidAlt = missingAlt + meaninglessAlt;
+    if (invalidAlt > 0) {
+      const validAlt = totalImages - invalidAlt;
+      const coverage = Math.round((validAlt / totalImages) * 100);
+      const parts: string[] = [];
+      if (missingAlt > 0) parts.push(`${missingAlt} 张缺失`);
+      if (meaninglessAlt > 0) parts.push(`${meaninglessAlt} 张无意义（如 "img"、"图片"）`);
+      issues.push(
+        `${invalidAlt}/${totalImages} 张图片 alt 无效（${parts.join('、')}），有效覆盖率 ${coverage}%`
+      );
+      suggestions.push(
+        '为 alt 无效的图片补充描述性 alt（描述图片内容与所在场景），将有效覆盖率提升至 90% 以上'
+      );
+      score -= Math.round((invalidAlt / totalImages) * 50);
+    }
   }
 
   // Check content length
@@ -343,18 +359,6 @@ function analyzeContentAccessibility(
     );
     suggestions.push('增加页面的实质性文字内容，建议至少 300 词以上');
     score -= 20;
-  }
-
-  // Check heading hierarchy
-  const h1Count = page.headings.filter((h) => h.tag === 'h1').length;
-  if (h1Count === 0) {
-    issues.push('页面缺少 H1 标题');
-    suggestions.push('添加一个明确的 H1 标题来描述页面主题');
-    score -= 15;
-  } else if (h1Count > 1) {
-    issues.push(`页面有 ${h1Count} 个 H1 标题，建议只保留一个`);
-    suggestions.push('确保页面只有一个 H1 标题');
-    score -= 10;
   }
 
   // Check for structured lists
@@ -385,13 +389,18 @@ function analyzeSemanticStructure(
 
   // Check heading hierarchy
   const headingTags = page.headings.map((h) => h.tag);
-  const hasH1 = headingTags.includes('h1');
+  const h1Count = headingTags.filter((tag) => tag === 'h1').length;
   const hasH2 = headingTags.includes('h2');
   const hasH3 = headingTags.includes('h3');
 
-  if (!hasH1) {
+  if (h1Count === 0) {
     issues.push('缺少 H1 主标题');
+    suggestions.push('添加一个明确的 H1 标题来描述页面主题');
     score -= 20;
+  } else if (h1Count > 1) {
+    issues.push(`页面有 ${h1Count} 个 H1 标题，建议只保留一个`);
+    suggestions.push('确保页面只有一个 H1 主标题');
+    score -= 10;
   }
   if (!hasH2) {
     issues.push('缺少 H2 副标题，内容结构不够清晰');
