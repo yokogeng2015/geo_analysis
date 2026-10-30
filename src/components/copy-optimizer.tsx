@@ -521,7 +521,7 @@ export function CopyOptimizer() {
               </svg>
               <span>
                 检测到可能的广告法风险词：<strong>{adRiskWords.join('、')}</strong>
-                。建议替换为客观表述（如「最 X」→「更 X」，或改用具体参数、年份代际、认证事实）。
+                。建议替换为客观表述（如「最 X」→「更 X」、「最新」→「新一代 / 新款」，或改用具体参数、认证事实）。
               </span>
             </div>
           )}

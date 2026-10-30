@@ -10,6 +10,9 @@ const MAX_TEXT_LENGTH = 20000;
 const AD_LAW_PATTERN =
   /(最好|最佳|最优|最新|最先进|最强|最高级|最低价|最便宜|第一|唯一|顶级|极致|极品|王牌|冠军|世界级|国家级|全网最|史上|绝无仅有|独一无二|史无前例|百分之百|100%|永久|彻底根除|无效退款)/g;
 
+// 当前年份（运行时动态获取，注入提示词；严禁模型输出其它年份的代际）
+const CURRENT_YEAR = new Date().getFullYear();
+
 const SYSTEM_PROMPT = `你是一位 GEO（生成式引擎优化）文案专家，任务是把用户粘贴的产品描述文案重写为更适合 AI 搜索引擎阅读、理解与引用的版本。
 
 你有以下 4 条可选原则，但不是每次全用——先诊断原文缺什么，只选用它真正需要的原则：
@@ -29,7 +32,7 @@ const SYSTEM_PROMPT = `你是一位 GEO（生成式引擎优化）文案专家�
 4. 结构化易读（Structured Digestibility）：仅当原文出现超过 4 行的长段落（AI 切分熵高、抽取易丢参数）时才使用——拆成短句或要点列表，同类参数可用加粗小标签分组（如"**生态兼容:**"）。原文本身已是简洁要点或短段落时，禁止拆分、禁止强行加小标题。
 
 5. 广告法合规（最高优先级，强制）：输出中严禁出现《中华人民共和国广告法》禁用的绝对化用语与虚假承诺——最好、最佳、最优、最新、最先进、最强、最高级、最低价、最便宜、第一、唯一、顶级、极致、极品、王牌、冠军、世界级、国家级、全网最、史上、绝无仅有、独一无二、史无前例、绝对、百分之百、100%、永久、彻底根除、无效退款等。
-   替换策略：「最X」改为「更X / 较X」或直接删除，用具体参数、认证、使用场景支撑说服力；「最新」改为具体代际（如「新一代」「2024 款」）；「第一 / 唯一 / 顶级」改为差异化事实描述。数字参数本身保留，但含违禁词的措辞必须改写——本规则优先于「参数原样保留」要求。
+   替换策略：「最X」改为「更X / 较X」或直接删除，用具体参数、认证、使用场景支撑说服力；「最新」优先改为「新一代 / 新款」等不含年份的表述，确需年份代际时只能使用当前年份（${CURRENT_YEAR} 年 / ${CURRENT_YEAR} 款），严禁输出其它任何年份（过去或未来都不行），严禁照搬任何示例或模板中出现的年份；「第一 / 唯一 / 顶级」改为差异化事实描述。数字参数本身保留，但含违禁词的措辞必须改写——本规则优先于「参数原样保留」要求。
 
 0. 总结性总起（Synthesized Lead）：输出第一行必须是总起句——通读全文所有要点后，综合提炼产品核心定位（产品品类 + 最关键的综合价值或适用人群），30 字以内。禁止直接照搬原文中的任何一条要点作为总起；总起句要能覆盖全文，让 AI 引用时一句话即可概括该产品。
    原文特征：只有要点罗列、缺少总结性结论时，必须补上总起。
@@ -131,10 +134,17 @@ export async function POST(request: NextRequest) {
             controller.enqueue(sseEvent({ delta }));
           }
         }
-        // 流结束后扫描广告法风险词，命中则通知前端展示警告
+        // 流结束后扫描广告法风险词 + 编造年份（如提示词示例年份泄漏），命中则通知前端展示警告
         const riskWords = Array.from(new Set(fullText.match(AD_LAW_PATTERN) ?? []));
-        if (riskWords.length > 0) {
-          controller.enqueue(sseEvent({ warning: '广告法风险词', words: riskWords.join(',') }));
+        for (const m of fullText.matchAll(/((?:19|20)\d{2})\s*(?:款|年)/g)) {
+          // 年份代际不是当前年份，且原文中本来没有该年份 → 视为编造年份
+          if (parseInt(m[1], 10) !== CURRENT_YEAR && !text.includes(m[1])) {
+            riskWords.push(`编造年份:${m[0].trim()}`);
+          }
+        }
+        const dedupedRiskWords = Array.from(new Set(riskWords));
+        if (dedupedRiskWords.length > 0) {
+          controller.enqueue(sseEvent({ warning: '广告法风险词', words: dedupedRiskWords.join(',') }));
         }
         controller.enqueue(sseEvent({ done: true }));
       } catch (err) {
