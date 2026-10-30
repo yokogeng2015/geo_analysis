@@ -75,6 +75,8 @@ export function CopyOptimizer() {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
+  // 广告法风险词（服务端流后检测，前端展示警告条）
+  const [adRiskWords, setAdRiskWords] = useState<string[]>([]);
   // 截图附件
   const [imageData, setImageData] = useState<string | null>(null);
   const [imageName, setImageName] = useState('');
@@ -195,12 +197,14 @@ export function CopyOptimizer() {
       setError('');
       setOutput('');
       setCopied(false);
+      setAdRiskWords([]);
       try {
         const result = await streamText({
           endpoint: '/api/optimize-copy',
           body: { text, modelName: modelName.trim() || undefined, includeSubtitle },
           signal,
           onDelta: (acc) => setOutput(acc),
+          onWarning: (words) => setAdRiskWords(words),
           emptyMessage: 'AI 未返回优化结果，请重试',
         });
         setOutput(result);
@@ -500,6 +504,27 @@ export function CopyOptimizer() {
               {copied ? '已复制' : '复制文案'}
             </button>
           </div>
+          {adRiskWords.length > 0 && !generating && (
+            <div className="mx-5 mt-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-700">
+              <svg
+                className="w-3.5 h-3.5 mt-0.5 flex-shrink-0"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
+                />
+              </svg>
+              <span>
+                检测到可能的广告法风险词：<strong>{adRiskWords.join('、')}</strong>
+                。建议替换为客观表述（如「最 X」→「更 X」，或改用具体参数、年份代际、认证事实）。
+              </span>
+            </div>
+          )}
           <div className="px-5 py-4 space-y-3">
             {titleMode ? (
               <>

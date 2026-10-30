@@ -9,6 +9,8 @@ interface StreamTextOptions {
   signal?: AbortSignal;
   /** 每收到一个增量块回调（参数为当前累计全文），用于流式渲染 */
   onDelta?: (fullText: string) => void;
+  /** 服务端在流中发出的提示性警告（如广告法风险词列表） */
+  onWarning?: (words: string[]) => void;
   /** 流结束后对累计全文的校验/提示文案，空结果时抛错 */
   emptyMessage?: string;
 }
@@ -18,6 +20,7 @@ export async function streamText({
   body,
   signal,
   onDelta,
+  onWarning,
   emptyMessage = 'AI 未返回有效内容，请重试',
 }: StreamTextOptions): Promise<string> {
   const res = await fetch(endpoint, {
@@ -52,13 +55,16 @@ export async function streamText({
     for (const event of events) {
       const dataLine = event.split('\n').find((l) => l.startsWith('data:'));
       if (!dataLine) continue;
-      let payload: { delta?: string; done?: boolean; error?: string };
+      let payload: { delta?: string; done?: boolean; error?: string; warning?: string; words?: string };
       try {
         payload = JSON.parse(dataLine.slice(5).trim());
       } catch {
         continue; // 忽略无法解析的事件帧
       }
       if (payload.error) throw new Error(payload.error);
+      if (payload.warning && payload.words) {
+        onWarning?.(payload.words.split(',').filter(Boolean));
+      }
       if (payload.delta) {
         acc += payload.delta;
         onDelta?.(acc);
