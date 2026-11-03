@@ -1,14 +1,15 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  // 1. 开启静态导出，让 next build 自动在 out 目录生成纯静态的 index.html
+  // 开启静态导出
   output: 'export',
 
-  // outputFileTracingRoot: path.resolve(__dirname, '../../'),  // Uncomment and add 'import path from "path"' if needed
-  /* config options here */
+  // 关键：指定你的 GitHub 仓库子路径名称（前后都要有斜杠或只在前面加）
+  basePath: '/geo_analysis',
+  assetPrefix: '/geo_analysis/',
+
   allowedDevOrigins: ['*.dev.coze.site'],
   images: {
-    // 2. 静态导出必须关闭 Next.js 默认的服务端图片优化，否则打包会报错
     unoptimized: true,
     remotePatterns: [
       {
