@@ -13,6 +13,9 @@ GEO Analyzer - Generative Engine Optimization 分析工具。从 Technical GEO �
 
 ## 目录结构
 ```
+docs/
+├── index.html                 # 静态版入口（GitHub Pages，main 分支 /docs 目录部署）
+└── analyzer.bundle.js          # tsup 打包的引擎 IIFE（pnpm run build:static 生成）
 src/
 ── app/
 │   ├── api/analyze/route.ts    # GEO 分析 API
@@ -34,8 +37,9 @@ src/
 │   ├── image-describe-panel.tsx # 直接识图面板（上传/Ctrl+V 粘贴/拖拽任意图片 → 流式生成描述）
 │   └── optimization-modal.tsx  # Comparison Context 优化弹窗
 ├── lib/
-│   ├── geo-analyzer.ts         # GEO 分析引擎核心逻辑
+│   ├── geo-analyzer.ts         # GEO 分析引擎核心逻辑（纯 TS，浏览器/Node 双端通用）
 │   ├── code-optimizer.ts       # HTML 代码优化分析（alt 检测增强）
+│   ├── static-entry.ts         # 静态版浏览器入口（打包为 window.GeoAnalyzer）
 │   ├── pdf-export.ts           # PDF 导出（onclone 修复 lab/oklch 颜色）
 │   ├── image-client.ts         # 客户端图片工具（fileToCompressedDataUri：>1.5MB canvas 压缩到 2000px）
 │   └── utils.ts                # 工具函数
@@ -49,6 +53,14 @@ src/
 - `pnpm start` - 启动生产服务
 - `pnpm ts-check` - TypeScript 类型检查
 - `pnpm lint` - ESLint 检查
+- `pnpm run build:static` - 重新打包静态版引擎到 docs/analyzer.bundle.js（tsup IIFE + minify）
+
+## 静态版（docs/，GitHub Pages）
+- **双端同源引擎**：geo-analyzer.ts 与 code-optimizer.ts 为纯 TS（无 Node API），同一份代码服务 `/api/analyze`（analyzeUrl）与浏览器（parseHTML + analyzeParsedPage）
+- **导出面**（static-entry.ts → window.GeoAnalyzer）：parseHTML(html, url) / analyzeParsedPage(page, url?) / analyzeHTMLCode(html) / generateFaqSchema(qa) / isMeaninglessAlt(alt)
+- **引擎改动同步义务**：修改 geo-analyzer.ts 或 code-optimizer.ts 后必须重跑 `pnpm run build:static`，否则静态版与主站行为漂移
+- **docs/index.html 三 Tab**：①页面分析（URL 经公共 CORS 代理抓取，allorigins/codetabs/corsproxy 依次尝试，粘贴 HTML 兜底）②代码优化（analyzeHTMLCode 纯本地）③AI 工具（火山方舟 OpenAI 兼容接口浏览器直连，Key 存 localStorage，可选）
+- **GitHub Pages 启用**：仓库 Settings → Pages → Deploy from a branch → main + /docs 目录
 
 ## 核心功能
 1. **URL 输入与分析**: 用户输入 URL，后端抓取页面 HTML 并分析

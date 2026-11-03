@@ -1,363 +1,103 @@
-# projects
+# GEO Analyzer
 
-这是一个基于 [Next.js 16](https://nextjs.org) + [shadcn/ui](https://ui.shadcn.com) 的全栈应用项目，由扣子编程 CLI 创建。
+Generative Engine Optimization（生成式引擎优化）分析工具 —— 从 **Technical GEO** 与 **Content GEO** 两大维度、共 12 个细分指标，深度分析网页在 AI 搜索引擎（ChatGPT / 豆包 / Kimi 等）中的可理解性与推荐潜力。
 
-## 快速开始
+本项目提供**两种部署形态**：
 
-### 启动开发服务器
+| 形态 | 入口 | 依赖 | 适用场景 |
+|------|------|------|----------|
+| **全栈版**（Next.js 16） | `src/app/page.tsx` | Node 运行时 + AI 凭证 | 完整功能：URL 分析、雷达图、代码/文案 AI 优化、PDF 导出 |
+| **静态版**（纯 index.html） | `docs/index.html` | 任意静态托管，零后端 | GitHub Pages / 对象存储托管；核心分析引擎完全离线可用 |
 
-```bash
-coze-dev dev
+---
+
+## 静态版（GitHub Pages 就绪）
+
+静态版复用与全栈版**同一份分析引擎**（`src/lib/geo-analyzer.ts` + `src/lib/code-optimizer.ts`），通过 tsup 打包为浏览器 IIFE：
+
+```
+docs/
+├── index.html          # 单文件静态页（内联 CSS/JS，含三 Tab）
+└── analyzer.bundle.js  # esbuild/tsup 打包的引擎（window.GeoAnalyzer）
 ```
 
-启动后，在浏览器中打开 [http://localhost:5000](http://localhost:5000) 查看应用。
+### 功能
 
-开发服务器支持热更新，修改代码后页面会自动刷新。
+1. **页面分析**：输入 URL（自动尝试公共 CORS 代理抓取，失败可粘贴 HTML 兜底）→ 双总分 + 双雷达图（Chart.js）+ 12 维度明细 + 代码建议
+2. **代码优化**：粘贴 HTML 片段 → alt 有效性检测（缺失/空/无意义，含缩略图预览）+ FAQ Schema 检测 + 优化后代码
+3. **AI 工具**（可选）：火山方舟 OpenAI 兼容接口浏览器直连 —— GEO 文案优化（4 大原则 + 广告法合规）、AI 识图生成 alt；API Key 仅存本机 localStorage
 
-### 构建生产版本
+> AI 工具 Tab 需自备火山方舟 API Key；不填则前两个 Tab 依然完整可用。
+
+### 重新打包引擎
+
+修改 `src/lib/geo-analyzer.ts` / `src/lib/code-optimizer.ts` 后需要重新生成 bundle：
 
 ```bash
-coze-dev build
+pnpm run build:static
 ```
 
-### 启动生产服务器
+### GitHub Pages 启用步骤
+
+1. 推送本仓库后，进入 GitHub 仓库 **Settings → Pages**
+2. Source 选择 **Deploy from a branch**
+3. Branch 选择 **main**，目录选择 **/docs**，保存
+4. 约 1 分钟后访问 `https://<用户名>.github.io/geo_analysis/`
+
+---
+
+## 全栈版（Next.js）
+
+### 快速开始
 
 ```bash
-coze-dev start
+pnpm install        # 安装依赖（仅允许 pnpm）
+pnpm dev            # 开发服务（热更新）
+pnpm run build      # 生产构建
+pnpm start          # 生产服务
 ```
 
-## 项目结构
+### 开发检查
+
+```bash
+pnpm ts-check       # TypeScript 类型检查
+pnpm lint           # ESLint
+pnpm run build:static  # 重新打包静态版引擎
+```
+
+### 核心目录
 
 ```
 src/
-├── app/                      # Next.js App Router 目录
-│   ├── layout.tsx           # 根布局组件
-│   ├── page.tsx             # 首页
-│   ├── globals.css          # 全局样式（包含 shadcn 主题变量）
-│   └── [route]/             # 其他路由页面
-├── components/              # React 组件目录
-│   └── ui/                  # shadcn/ui 基础组件（优先使用）
-│       ├── button.tsx
-│       ├── card.tsx
-│       └── ...
-├── lib/                     # 工具函数库
-│   └── utils.ts            # cn() 等工具函数
-└── hooks/                   # 自定义 React Hooks（可选）
-
-server/
-├── index.ts                 # 自定义服务器入口
-├── tsconfig.json           # Server TypeScript 配置
-└── dist/                    # 编译输出目录（自动生成）
+├── app/
+│   ├── api/analyze/route.ts        # GEO 分析 API（服务端抓取 + 引擎分析）
+│   ├── api/describe-image/route.ts # AI 识图生成 alt（SSE 流式）
+│   ├── api/optimize-copy/route.ts  # GEO 文案优化（SSE 流式 + 广告法合规）
+│   ├── api/extract-text/route.ts   # 截图 OCR 提取文案（SSE 流式）
+│   └── page.tsx                    # 主页面
+├── components/                     # UI 组件（雷达图/维度详情/优化面板等）
+├── lib/
+│   ├── geo-analyzer.ts             # GEO 分析引擎核心（12 维度，纯 TS，浏览器/Node 通用）
+│   ├── code-optimizer.ts           # HTML 代码优化分析（alt/FAQ Schema）
+│   ├── static-entry.ts             # 静态版浏览器入口（打包为 window.GeoAnalyzer）
+│   └── ...
+└── types/geo.ts                    # 类型定义
 ```
 
-## 核心开发规范
+### 引擎双端复用说明
 
-### 1. 组件开发
+`geo-analyzer.ts` 与 `code-optimizer.ts` 为纯 TypeScript（无 Node API 依赖），同一份代码同时服务：
 
-**优先使用 shadcn/ui 基础组件**
+- **服务端**：`/api/analyze` 通过 `analyzeUrl(url)` 抓取并分析
+- **浏览器**：`static-entry.ts` 暴露 `parseHTML(html, url)` + `analyzeParsedPage(page, url)`，由静态版直接调用
 
-本项目已预装完整的 shadcn/ui 组件库，位于 `src/components/ui/` 目录。开发时应优先使用这些组件作为基础：
-
-```tsx
-// ✅ 推荐：使用 shadcn 基础组件
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-
-export default function MyComponent() {
-  return (
-    <Card>
-      <CardHeader>标题</CardHeader>
-      <CardContent>
-        <Input placeholder="输入内容" />
-        <Button>提交</Button>
-      </CardContent>
-    </Card>
-  );
-}
-```
-
-**可用的 shadcn 组件清单**
-
-- 表单：`button`, `input`, `textarea`, `select`, `checkbox`, `radio-group`, `switch`, `slider`
-- 布局：`card`, `separator`, `tabs`, `accordion`, `collapsible`, `scroll-area`
-- 反馈：`alert`, `alert-dialog`, `dialog`, `toast`, `sonner`, `progress`
-- 导航：`dropdown-menu`, `menubar`, `navigation-menu`, `context-menu`
-- 数据展示：`table`, `avatar`, `badge`, `hover-card`, `tooltip`, `popover`
-- 其他：`calendar`, `command`, `carousel`, `resizable`, `sidebar`
-
-详见 `src/components/ui/` 目录下的具体组件实现。
-
-### 2. 路由开发
-
-Next.js 使用文件系统路由，在 `src/app/` 目录下创建文件夹即可添加路由：
-
-```bash
-# 创建新路由 /about
-src/app/about/page.tsx
-
-# 创建动态路由 /posts/[id]
-src/app/posts/[id]/page.tsx
-
-# 创建路由组（不影响 URL）
-src/app/(marketing)/about/page.tsx
-
-# 创建 API 路由
-src/app/api/users/route.ts
-```
-
-**页面组件示例**
-
-```tsx
-// src/app/about/page.tsx
-import { Button } from '@/components/ui/button';
-
-export const metadata = {
-  title: '关于我们',
-  description: '关于页面描述',
-};
-
-export default function AboutPage() {
-  return (
-    <div>
-      <h1>关于我们</h1>
-      <Button>了解更多</Button>
-    </div>
-  );
-}
-```
-
-**动态路由示例**
-
-```tsx
-// src/app/posts/[id]/page.tsx
-export default async function PostPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
-
-  return <div>文章 ID: {id}</div>;
-}
-```
-
-**API 路由示例**
-
-```tsx
-// src/app/api/users/route.ts
-import { NextResponse } from 'next/server';
-
-export async function GET() {
-  return NextResponse.json({ users: [] });
-}
-
-export async function POST(request: Request) {
-  const body = await request.json();
-  return NextResponse.json({ success: true });
-}
-```
-
-### 3. 依赖管理
-
-**必须使用 pnpm 管理依赖**
-
-```bash
-# ✅ 安装依赖
-pnpm install
-
-# ✅ 添加新依赖
-pnpm add package-name
-
-# ✅ 添加开发依赖
-pnpm add -D package-name
-
-# ❌ 禁止使用 npm 或 yarn
-# npm install  # 错误！
-# yarn add     # 错误！
-```
-
-项目已配置 `preinstall` 脚本，使用其他包管理器会报错。
-
-### 4. 样式开发
-
-**使用 Tailwind CSS v4**
-
-本项目使用 Tailwind CSS v4 进行样式开发，并已配置 shadcn 主题变量。
-
-```tsx
-// 使用 Tailwind 类名
-<div className="flex items-center gap-4 p-4 rounded-lg bg-background">
-  <Button className="bg-primary text-primary-foreground">
-    主要按钮
-  </Button>
-</div>
-
-// 使用 cn() 工具函数合并类名
-import { cn } from '@/lib/utils';
-
-<div className={cn(
-  "base-class",
-  condition && "conditional-class",
-  className
-)}>
-  内容
-</div>
-```
-
-**主题变量**
-
-主题变量定义在 `src/app/globals.css` 中，支持亮色/暗色模式：
-
-- `--background`, `--foreground`
-- `--primary`, `--primary-foreground`
-- `--secondary`, `--secondary-foreground`
-- `--muted`, `--muted-foreground`
-- `--accent`, `--accent-foreground`
-- `--destructive`, `--destructive-foreground`
-- `--border`, `--input`, `--ring`
-
-### 5. 表单开发
-
-推荐使用 `react-hook-form` + `zod` 进行表单开发：
-
-```tsx
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-
-const formSchema = z.object({
-  username: z.string().min(2, '用户名至少 2 个字符'),
-  email: z.string().email('请输入有效的邮箱'),
-});
-
-export default function MyForm() {
-  const form = useForm({
-    resolver: zodResolver(formSchema),
-    defaultValues: { username: '', email: '' },
-  });
-
-  const onSubmit = (data: z.infer<typeof formSchema>) => {
-    console.log(data);
-  };
-
-  return (
-    <form onSubmit={form.handleSubmit(onSubmit)}>
-      <Input {...form.register('username')} />
-      <Input {...form.register('email')} />
-      <Button type="submit">提交</Button>
-    </form>
-  );
-}
-```
-
-### 6. 数据获取
-
-**服务端组件（推荐）**
-
-```tsx
-// src/app/posts/page.tsx
-async function getPosts() {
-  const res = await fetch('https://api.example.com/posts', {
-    cache: 'no-store', // 或 'force-cache'
-  });
-  return res.json();
-}
-
-export default async function PostsPage() {
-  const posts = await getPosts();
-
-  return (
-    <div>
-      {posts.map(post => (
-        <div key={post.id}>{post.title}</div>
-      ))}
-    </div>
-  );
-}
-```
-
-**客户端组件**
-
-```tsx
-'use client';
-
-import { useEffect, useState } from 'react';
-
-export default function ClientComponent() {
-  const [data, setData] = useState(null);
-
-  useEffect(() => {
-    fetch('/api/data')
-      .then(res => res.json())
-      .then(setData);
-  }, []);
-
-  return <div>{JSON.stringify(data)}</div>;
-}
-```
-
-## 常见开发场景
-
-### 添加新页面
-
-1. 在 `src/app/` 下创建文件夹和 `page.tsx`
-2. 使用 shadcn 组件构建 UI
-3. 根据需要添加 `layout.tsx` 和 `loading.tsx`
-
-### 创建业务组件
-
-1. 在 `src/components/` 下创建组件文件（非 UI 组件）
-2. 优先组合使用 `src/components/ui/` 中的基础组件
-3. 使用 TypeScript 定义 Props 类型
-
-### 添加全局状态
-
-推荐使用 React Context 或 Zustand：
-
-```tsx
-// src/lib/store.ts
-import { create } from 'zustand';
-
-interface Store {
-  count: number;
-  increment: () => void;
-}
-
-export const useStore = create<Store>((set) => ({
-  count: 0,
-  increment: () => set((state) => ({ count: state.count + 1 })),
-}));
-```
-
-### 集成数据库
-
-推荐使用 Prisma 或 Drizzle ORM，在 `src/lib/db.ts` 中配置。
+修改引擎后同时受益两端，记得跑 `pnpm run build:static` 同步静态版。
 
 ## 技术栈
 
-- **框架**: Next.js 16.1.1 (App Router)
-- **UI 组件**: shadcn/ui (基于 Radix UI)
-- **样式**: Tailwind CSS v4
-- **表单**: React Hook Form + Zod
-- **图标**: Lucide React
-- **字体**: Geist Sans & Geist Mono
+- **Framework**: Next.js 16.1.1 (App Router) + React 19
+- **UI**: shadcn/ui + Tailwind CSS 4
+- **Charts**: Chart.js + react-chartjs-2（全栈版）/ Chart.js CDN（静态版）
+- **静态打包**: tsup（esbuild）→ IIFE
+- **PDF**: jsPDF + html-to-image
 - **包管理器**: pnpm 9+
-- **TypeScript**: 5.x
-
-## 参考文档
-
-- [Next.js 官方文档](https://nextjs.org/docs)
-- [shadcn/ui 组件文档](https://ui.shadcn.com)
-- [Tailwind CSS 文档](https://tailwindcss.com/docs)
-- [React Hook Form](https://react-hook-form.com)
-
-## 重要提示
-
-1. **必须使用 pnpm** 作为包管理器
-2. **优先使用 shadcn/ui 组件** 而不是从零开发基础组件
-3. **遵循 Next.js App Router 规范**，正确区分服务端/客户端组件
-4. **使用 TypeScript** 进行类型安全开发
-5. **使用 `@/` 路径别名** 导入模块（已配置）

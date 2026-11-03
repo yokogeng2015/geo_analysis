@@ -8,7 +8,7 @@ import type {
 } from '@/types/geo';
 import { isMeaninglessAlt } from './code-optimizer';
 
-interface ParsedPage {
+export interface ParsedPage {
   url: string;
   html: string;
   title: string;
@@ -66,7 +66,7 @@ async function fetchPage(url: string): Promise<string> {
   }
 }
 
-function parseHTML(html: string, url: string): ParsedPage {
+export function parseHTML(html: string, url: string): ParsedPage {
   // Extract title
   const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
   const title = titleMatch ? titleMatch[1].trim() : '';
@@ -1725,6 +1725,17 @@ function generateCodeSuggestions(
 export async function analyzeUrl(url: string): Promise<AnalysisResult> {
   // Fetch the page (use cache to avoid duplicate fetches when comparing)
   const page = await getParsedPage(url);
+  return analyzeParsedPage(page, url);
+}
+
+/**
+ * 对已解析页面执行完整 GEO 分析（纯计算，无网络依赖，浏览器/Node 通用）。
+ */
+export function analyzeParsedPage(
+  page: ParsedPage,
+  url?: string
+): AnalysisResult {
+  const finalUrl = url || page.url;
 
   // Analyze Technical GEO dimensions
   const technicalDimensions: DimensionScore[] = [
@@ -1778,8 +1789,8 @@ export async function analyzeUrl(url: string): Promise<AnalysisResult> {
   contentResult.suggestions = codeSuggestions.content;
 
   return {
-    url,
-    title: page.title || url,
+    url: finalUrl,
+    title: page.title || finalUrl,
     technicalGEO: technicalResult,
     contentGEO: contentResult,
     analyzedAt: new Date().toISOString(),

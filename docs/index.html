@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>GEO Analyzer · 静态版</title>
+<meta name="description" content="Generative Engine Optimization 分析工具（纯静态版）：Technical GEO / Content GEO 12 维度分析、代码优化建议、AI 文案与识图工具" />
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="./analyzer.bundle.js" defer></script>
+<style>
+  :root {
+    --bg: #f8f9fc; --card: #ffffff; --border: #e5e7eb;
+    --sky: #0ea5e9; --amber: #f59e0b; --green: #10b981; --red: #ef4444;
+    --text: #1f2937; --muted: #6b7280;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: Inter, "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+    font-size: 14px; line-height: 1.6;
+  }
+  code, pre, textarea.code {
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 24px 16px 64px; }
+  header.app { text-align: center; padding: 28px 0 8px; }
+  header.app h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
+  header.app h1 .sky { color: var(--sky); }
+  header.app p.sub { color: var(--muted); margin-top: 6px; font-size: 13px; }
+  .badge-ver {
+    display: inline-block; margin-top: 10px; font-size: 12px; color: var(--sky);
+    background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 999px; padding: 2px 12px;
+  }
+  nav.tabs { display: flex; gap: 8px; justify-content: center; margin: 22px 0 26px; flex-wrap: wrap; }
+  nav.tabs button {
+    border: 1px solid var(--border); background: var(--card); color: var(--muted);
+    padding: 9px 22px; border-radius: 10px; cursor: pointer; font-size: 14px; font-weight: 500;
+    transition: all .15s ease;
+  }
+  nav.tabs button:hover { box-shadow: 0 2px 8px rgba(15,23,42,.08); }
+  nav.tabs button.active { background: var(--sky); border-color: var(--sky); color: #fff; }
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    padding: 20px; margin-bottom: 18px; box-shadow: 0 1px 3px rgba(15,23,42,.04);
+  }
+  .card h2 { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+  .card p.hint { color: var(--muted); font-size: 12.5px; margin-bottom: 12px; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; }
+  input[type=text], input[type=password], textarea {
+    border: 1px solid var(--border); border-radius: 10px; padding: 9px 12px;
+    font-size: 14px; width: 100%; background: #fff; color: var(--text); outline: none;
+    transition: border-color .15s;
+  }
+  input:focus, textarea:focus { border-color: var(--sky); }
+  .row input[type=text] { flex: 1; min-width: 260px; }
+  textarea.code { min-height: 140px; resize: vertical; background: #f9fafb; }
+  button.btn {
+    border: none; background: var(--sky); color: #fff; padding: 9px 20px;
+    border-radius: 10px; cursor: pointer; font-size: 14px; font-weight: 500;
+    transition: box-shadow .15s, opacity .15s; white-space: nowrap;
+  }
+  button.btn:hover { box-shadow: 0 4px 12px rgba(14,165,233,.35); }
+  button.btn:disabled { opacity: .5; cursor: not-allowed; }
+  button.btn.amber { background: var(--amber); }
+  button.btn.amber:hover { box-shadow: 0 4px 12px rgba(245,158,11,.35); }
+  button.btn.ghost { background: #fff; color: var(--text); border: 1px solid var(--border); }
+  button.btn.ghost:hover { box-shadow: 0 2px 8px rgba(15,23,42,.08); }
+  .status { margin-top: 12px; font-size: 13px; color: var(--muted); }
+  .status.err { color: var(--red); }
+  .status.ok { color: var(--green); }
+  .hidden { display: none !important; }
+  details { border: 1px solid var(--border); border-radius: 10px; margin-top: 10px; background: #fff; }
+  details summary {
+    padding: 10px 14px; cursor: pointer; font-size: 13.5px; font-weight: 500;
+    color: var(--text); user-select: none; list-style: revert;
+  }
+  details .inner { padding: 0 14px 14px; }
+  /* 总览与雷达图 */
+  .overall-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+  .overall {
+    border-radius: 12px; border: 1px solid var(--border); padding: 16px 18px; background: #fff;
+    border-top: 4px solid var(--sky);
+  }
+  .overall.content { border-top-color: var(--amber); }
+  .overall .label { font-size: 13px; color: var(--muted); }
+  .overall .score { font-size: 40px; font-weight: 700; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+  .overall .score.sky { color: var(--sky); } .overall .score.amber { color: var(--amber); }
+  .overall .grade { font-size: 12.5px; margin-top: 2px; }
+  .chart-box { position: relative; height: 340px; margin-top: 6px; }
+  .radar-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+  /* 维度卡片 */
+  .dims-title { font-size: 15px; font-weight: 600; margin: 18px 0 10px; }
+  .dim-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+  .dim {
+    background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px;
+  }
+  .dim .head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .dim .name { font-weight: 600; font-size: 14px; }
+  .dim .score { font-weight: 700; font-size: 18px; font-variant-numeric: tabular-nums; }
+  .s-good { color: var(--green); } .s-mid { color: var(--amber); } .s-bad { color: var(--red); }
+  .dim ul { margin: 8px 0 0 18px; font-size: 12.5px; }
+  .dim ul.issues li { color: #b45309; }
+  .dim ul.sugg li { color: #047857; }
+  .dim .snippet {
+    margin-top: 8px; font-size: 11.5px; color: var(--muted); background: #f9fafb;
+    border-left: 3px solid var(--border); padding: 4px 8px; border-radius: 4px;
+  }
+  .intent-gap { border-top: 1px dashed var(--border); margin-top: 8px; padding-top: 8px; font-size: 12.5px; }
+  .intent-gap b { color: var(--sky); }
+  .intent-gap .prompt { color: var(--muted); }
+  .intent-gap .sug { background: #f0f9ff; border-radius: 6px; padding: 6px 8px; margin-top: 4px; white-space: pre-wrap; }
+  /* 代码块 */
+  pre.codeblock {
+    background: #1e293b; color: #e2e8f0; border-radius: 10px; padding: 12px 14px;
+    font-size: 12px; overflow-x: auto; white-space: pre-wrap; word-break: break-all; line-height: 1.55;
+  }
+  pre.codeblock.plain { background: #f9fafb; color: var(--text); border: 1px solid var(--border); }
+  /* 代码优化 tab */
+  .stat-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .chip {
+    font-size: 12.5px; padding: 4px 12px; border-radius: 999px; border: 1px solid var(--border); background: #f9fafb;
+  }
+  .chip b { font-variant-numeric: tabular-nums; }
+  .chip.ok b { color: var(--green); } .chip.bad b { color: var(--red); }
+  .alt-item {
+    display: flex; gap: 12px; padding: 12px 0; border-top: 1px dashed var(--border); align-items: flex-start;
+  }
+  .alt-item img.thumb {
+    width: 64px; height: 48px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border);
+    background: #f1f5f9; flex-shrink: 0; cursor: zoom-in;
+  }
+  .alt-item .body { flex: 1; min-width: 0; }
+  .alt-item .meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 4px; }
+  .tag { font-size: 11.5px; padding: 1px 8px; border-radius: 999px; font-weight: 500; }
+  .tag.missing { background: #fef2f2; color: var(--red); border: 1px solid #fecaca; }
+  .tag.empty { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
+  .tag.meaningless { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
+  .alt-item pre.codeblock { margin: 6px 0; }
+  .alt-item .sug { font-size: 12.5px; color: #047857; background: #ecfdf5; border-radius: 6px; padding: 6px 10px; }
+  /* AI tab */
+  .ai-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; }
+  .ai-out {
+    background: #f9fafb; border: 1px solid var(--border); border-radius: 10px;
+    min-height: 120px; padding: 12px 14px; font-size: 13px; white-space: pre-wrap; word-break: break-word;
+  }
+  .ai-out .cursor { display: inline-block; width: 7px; height: 15px; background: var(--sky); vertical-align: text-bottom; animation: blink 1s step-end infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  .field { margin-bottom: 10px; }
+  .field label { display: block; font-size: 12.5px; color: var(--muted); margin-bottom: 4px; }
+  .dropzone {
+    border: 1.5px dashed #bae6fd; border-radius: 10px; padding: 16px; text-align: center;
+    color: var(--muted); font-size: 13px; cursor: pointer; transition: all .15s; background: #fff;
+  }
+  .dropzone:hover { border-color: var(--sky); }
+  .dropzone.drag { border-color: #38bdf8; background: #f0f9ff; }
+  .ai-img-preview { max-width: 100%; max-height: 180px; border-radius: 8px; border: 1px solid var(--border); margin-top: 10px; }
+  footer.app { text-align: center; color: var(--muted); font-size: 12px; margin-top: 30px; }
+  footer.app a { color: var(--sky); text-decoration: none; }
+  @media (max-width: 640px) { .chart-box { height: 280px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="app">
+    <h1>GEO <span class="sky">Analyzer</span> · 静态版</h1>
+    <p class="sub">Generative Engine Optimization —— 分析网页在 AI 搜索引擎中的优化程度（12 维度）</p>
+    <span class="badge-ver">纯静态部署 · 引擎与主站同源 · 无后端</span>
+  </header>
+
+  <nav class="tabs">
+    <button class="active" data-tab="analyze">页面分析</button>
+    <button data-tab="code">代码优化</button>
+    <button data-tab="ai">AI 工具</button>
+  </nav>
+
+  <!-- ============ Tab 1: 页面分析 ============ -->
+  <section id="tab-analyze">
+    <div class="card">
+      <h2>输入页面 URL</h2>
+      <p class="hint">浏览器跨域限制下会自动依次尝试公共 CORS 代理抓取；若全部失败，请展开下方「粘贴 HTML」手动分析。</p>
+      <div class="row">
+        <input type="text" id="url-input" placeholder="https://example.com/product" />
+        <button class="btn" id="btn-fetch">抓取并分析</button>
+      </div>
+      <div class="status" id="fetch-status"></div>
+      <details>
+        <summary>粘贴 HTML 源码（代理失败时的兜底方案）</summary>
+        <div class="inner">
+          <p class="hint" style="margin-top:10px">浏览器打开目标页面 → 右键「查看网页源代码」→ 全选复制粘贴到下面；页面 URL 选填（用于解析相对链接与外链判断）。</p>
+          <input type="text" id="paste-url" placeholder="页面 URL（选填）" style="margin-bottom:10px" />
+          <textarea class="code" id="paste-html" placeholder="&lt;!DOCTYPE html&gt; ..."></textarea>
+          <div class="row" style="margin-top:10px">
+            <button class="btn" id="btn-analyze-paste">分析粘贴的 HTML</button>
+          </div>
+          <div class="status" id="paste-status"></div>
+        </div>
+      </details>
+    </div>
+
+    <div id="analyze-result" class="hidden">
+      <div class="card">
+        <h2 id="result-title">分析结果</h2>
+        <p class="hint" id="result-url"></p>
+        <div class="overall-grid">
+          <div class="overall">
+            <div class="label">Technical GEO（技术优化）</div>
+            <div class="score sky" id="score-tech">-</div>
+            <div class="grade" id="grade-tech"></div>
+          </div>
+          <div class="overall content">
+            <div class="label">Content GEO（内容优化）</div>
+            <div class="score amber" id="score-content">-</div>
+            <div class="grade" id="grade-content"></div>
+          </div>
+        </div>
+        <div class="dims-title">雷达图对比</div>
+        <div class="radar-grid">
+          <div class="chart-box"><canvas id="radar-tech"></canvas></div>
+          <div class="chart-box"><canvas id="radar-content"></canvas></div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>维度明细</h2>
+        <div class="dims-title" style="margin-top:2px; color:var(--sky)">Technical GEO</div>
+        <div class="dim-grid" id="dims-tech"></div>
+        <div class="dims-title" style="color:var(--amber)">Content GEO</div>
+        <div class="dim-grid" id="dims-content"></div>
+      </div>
+      <div class="card">
+        <h2>代码优化建议</h2>
+        <p class="hint">基于分析结果自动生成的可落地 HTML 修改建议。</p>
+        <div id="suggestions"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ Tab 2: 代码优化 ============ -->
+  <section id="tab-code" class="hidden">
+    <div class="card">
+      <h2>粘贴 HTML 代码片段</h2>
+      <p class="hint">检测图片 alt 有效性（缺失 / 空 / 无意义）与 FAQ Schema 缺失，并输出优化后的代码。纯本地计算，无网络请求。</p>
+      <textarea class="code" id="code-input" placeholder="<div> ... </div>"></textarea>
+      <div class="row" style="margin-top:10px">
+        <button class="btn" id="btn-code-analyze">分析代码</button>
+      </div>
+      <div class="status" id="code-status"></div>
+    </div>
+    <div id="code-result" class="hidden">
+      <div class="card">
+        <h2>检测概览</h2>
+        <div class="stat-chips" id="code-stats"></div>
+        <div id="alt-issues"></div>
+        <div id="faq-issues"></div>
+      </div>
+      <div class="card">
+        <h2>优化后代码</h2>
+        <p class="hint">已自动补全 / 替换无效 alt 与 FAQ Schema 的版本。</p>
+        <pre class="codeblock" id="code-optimized"></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ Tab 3: AI 工具 ============ -->
+  <section id="tab-ai" class="hidden">
+    <div class="card">
+      <h2>火山方舟（ARK）连接配置</h2>
+      <p class="hint">静态版无后端，AI 功能由浏览器直连火山方舟 OpenAI 兼容接口。API Key 仅保存在本机浏览器 localStorage，不会上传到任何服务器。若目标接口存在跨域限制，请使用支持 CORS 的推理接入点或自建代理。</p>
+      <div class="field">
+        <label>API Key</label>
+        <input type="password" id="ark-key" placeholder="火山方舟 API Key（ark-... 或 UUID 形式）" />
+      </div>
+      <div class="field">
+        <label>模型 ID（推理接入点）</label>
+        <input type="text" id="ark-model" placeholder="如 doubao-seed-1-6-flash-250815" />
+      </div>
+      <div class="field">
+        <label>接口地址</label>
+        <input type="text" id="ark-endpoint" placeholder="https://ark.cn-beijing.volces.com/api/v3/chat/completions" />
+      </div>
+      <div class="row">
+        <button class="btn" id="btn-ark-save">保存配置</button>
+        <span class="status" id="ark-status"></span>
+      </div>
+    </div>
+    <div class="ai-grid">
+      <div class="card">
+        <h2>GEO 文案优化</h2>
+        <p class="hint">按 4 大 GEO 原则（结论先行 / 场景驱动 / 实体精确 / 结构化易读）重写产品文案，内置广告法合规检查，流式输出。</p>
+        <textarea class="code" id="ai-copy-input" style="min-height:110px" placeholder="粘贴产品描述文案..."></textarea>
+        <div class="row" style="margin-top:10px">
+          <button class="btn amber" id="btn-ai-copy">优化文案</button>
+          <button class="btn ghost hidden" id="btn-ai-copy-stop">停止</button>
+        </div>
+        <div class="ai-out" id="ai-copy-out" style="margin-top:12px"></div>
+      </div>
+      <div class="card">
+        <h2>AI 识图生成 alt</h2>
+        <p class="hint">输入图片 URL 或上传图片，按 Apple 官网风格生成 alt 描述（流式输出）。</p>
+        <input type="text" id="ai-alt-url" placeholder="图片 URL（http/https 或 data:image）" />
+        <div class="dropzone" id="ai-alt-drop" style="margin-top:10px">点击上传图片，或将图片拖拽 / Ctrl+V 粘贴到此处</div>
+        <input type="file" id="ai-alt-file" accept="image/*" class="hidden" />
+        <img id="ai-alt-preview" class="ai-img-preview hidden" alt="待识别图片预览" />
+        <div class="row" style="margin-top:10px">
+          <button class="btn" id="btn-ai-alt">生成描述</button>
+          <button class="btn ghost hidden" id="btn-ai-alt-stop">停止</button>
+        </div>
+        <div class="ai-out" id="ai-alt-out" style="margin-top:12px"></div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="app">
+    GEO Analyzer Static · 引擎与 <a href="https://github.com/yokogeng2015/geo_analysis" target="_blank" rel="noopener">主项目</a> 同源打包 · GitHub Pages 就绪
+  </footer>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  };
+  var ENG = function () { return window.GeoAnalyzer || null; };
+
+  /* ---------- Tab 切换 ---------- */
+  var tabs = document.querySelectorAll('nav.tabs button');
+  tabs.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      tabs.forEach(function (b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      ['analyze', 'code', 'ai'].forEach(function (t) {
+        $('tab-' + t).classList.toggle('hidden', t !== btn.dataset.tab);
+      });
+    });
+  });
+
+  /* ---------- 引擎未加载提示 ---------- */
+  window.addEventListener('load', function () {
+    if (!ENG()) {
+      document.querySelector('.badge-ver').textContent = '引擎加载失败：analyzer.bundle.js 未找到，请先运行 pnpm run build:static';
+      document.querySelector('.badge-ver').style.color = '#ef4444';
+    }
+  });
+
+  function gradeOf(score) {
+    if (score >= 80) return { text: '优秀', cls: 's-good' };
+    if (score >= 60) return { text: '良好', cls: 's-mid' };
+    return { text: '待改进', cls: 's-bad' };
+  }
+  function scoreCls(score) {
+    return score >= 80 ? 's-good' : score >= 60 ? 's-mid' : 's-bad';
+  }
+
+  /* ---------- 页面分析 ---------- */
+  var PROXIES = [
+    function (u) { return 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u); },
+    function (u) { return 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u); },
+    function (u) { return 'https://corsproxy.io/?url=' + encodeURIComponent(u); }
+  ];
+  function fetchWithTimeout(url, ms) {
+    var ctrl = new AbortController();
+    var timer = setTimeout(function () { ctrl.abort(); }, ms || 15000);
+    return fetch(url, { signal: ctrl.signal }).finally(function () { clearTimeout(timer); });
+  }
+  function looksLikeHtml(text) { return /<html[\s\S]*|<!doctype/i.test(text); }
+
+  function fetchPageHtml(url, onStep) {
+    var steps = [];
+    // 1) 直接抓取（对允许 CORS 的站点有效）
+    steps.push(function () {
+      return fetchWithTimeout(url, 12000).then(function (r) {
+        if (!r.ok) throw new Error('direct HTTP ' + r.status);
+        return r.text();
+      });
+    });
+    // 2/3/4) 公共代理
+    PROXIES.forEach(function (mk) {
+      steps.push(function () {
+        return fetchWithTimeout(mk(url), 15000).then(function (r) {
+          if (!r.ok) throw new Error('proxy HTTP ' + r.status);
+          return r.text();
+        });
+      });
+    });
+    var i = 0;
+    function attempt() {
+      if (i >= steps.length) return Promise.reject(new Error('所有抓取通道均失败（目标站可能有防盗链/反爬），请使用「粘贴 HTML」兜底'));
+      onStep('尝试抓取通道 ' + (i + 1) + ' / ' + steps.length + ' ...');
+      return steps[i++]().then(function (text) {
+        if (!looksLikeHtml(text)) throw new Error('响应不是 HTML');
+        return text;
+      }).catch(attempt);
+    }
+    return attempt();
+  }
+
+  function setStatus(el, msg, cls) {
+    el.textContent = msg || '';
+    el.className = 'status' + (cls ? ' ' + cls : '');
+  }
+
+  function runAnalysis(html, url) {
+    var page = ENG().parseHTML(html, url || 'https://example.com/');
+    var result = ENG().analyzeParsedPage(page, url);
+    renderAnalysis(page, result);
+  }
+
+  $('btn-fetch').addEventListener('click', function () {
+    var url = $('url-input').value.trim();
+    if (!/^https?:\/\//i.test(url)) { setStatus($('fetch-status'), '请输入以 http(s):// 开头的 URL', 'err'); return; }
+    var btn = this; btn.disabled = true;
+    setStatus($('fetch-status'), '开始抓取 ...');
+    fetchPageHtml(url, function (step) { setStatus($('fetch-status'), step); })
+      .then(function (html) {
+        setStatus($('fetch-status'), '抓取成功（' + Math.round(html.length / 1024) + ' KB），正在分析 ...');
+        runAnalysis(html, url);
+        setStatus($('fetch-status'), '分析完成', 'ok');
+      })
+      .catch(function (e) { setStatus($('fetch-status'), e.message, 'err'); })
+      .finally(function () { btn.disabled = false; });
+  });
+
+  $('btn-analyze-paste').addEventListener('click', function () {
+    var html = $('paste-html').value;
+    if (!html.trim()) { setStatus($('paste-status'), '请先粘贴 HTML 源码', 'err'); return; }
+    runAnalysis(html, $('paste-url').value.trim());
+    setStatus($('paste-status'), '分析完成', 'ok');
+  });
+
+  var DIM_CN = {
+    'Crawlability': '可抓取性', 'Content Accessibility': '内容可达性',
+    'Semantic Structure': '语义结构', 'Entity & Schema': '实体与 Schema',
+    'Internal Context': '内部上下文', 'Metadata & AI Signals': '元数据与 AI 信号',
+    'Product Facts': '产品事实', 'Feature Explainability': '功能可解释性',
+    'User Intent': '用户意图', 'Q&A': '问答覆盖', 'Use Cases': '使用场景',
+    'Comparison Context': '对比语境', 'Evidence & Trust': '证据与信任'
+  };
+
+  function renderAnalysis(page, result) {
+    $('analyze-result').classList.remove('hidden');
+    $('result-title').textContent = page.title || result.url;
+    $('result-url').textContent = result.url + ' · 分析于 ' + new Date(result.analyzedAt).toLocaleString('zh-CN');
+    $('score-tech').textContent = result.technicalGEO.overallScore;
+    $('score-content').textContent = result.contentGEO.overallScore;
+    var gt = gradeOf(result.technicalGEO.overallScore), gc = gradeOf(result.contentGEO.overallScore);
+    $('grade-tech').innerHTML = '<span class="' + gt.cls + '">' + gt.text + '</span>（6 维度均值）';
+    $('grade-content').innerHTML = '<span class="' + gc.cls + '">' + gc.text + '</span>（6 维度均值）';
+    renderDims('dims-tech', result.technicalGEO.dimensions);
+    renderDims('dims-content', result.contentGEO.dimensions);
+    renderSuggestions(result.technicalGEO.suggestions.concat(result.contentGEO.suggestions));
+    renderRadar(result);
+    $('analyze-result').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function renderDims(elId, dims) {
+    $(elId).innerHTML = dims.map(function (d) {
+      var issues = (d.issues || []).map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('');
+      var sugg = (d.suggestions || []).map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('');
+      var snippet = d.contentSnippet
+        ? '<div class="snippet">' + esc(d.contentSnippet) + '</div>' : '';
+      var gaps = '';
+      if (d.intentGaps && d.intentGaps.length) {
+        gaps = d.intentGaps.slice(0, 3).map(function (g) {
+          return '<div class="intent-gap"><b>' + esc(g.topic) + '</b>'
+            + '<div class="prompt">用户高频 Prompt：' + esc(g.userPrompt) + '</div>'
+            + (g.suggestion ? '<div class="sug">' + esc(g.suggestion) + '</div>' : '') + '</div>';
+        }).join('');
+      }
+      return '<div class="dim"><div class="head"><span class="name">' + esc(DIM_CN[d.name] || d.name)
+        + '<span style="color:var(--muted);font-weight:400;font-size:12px"> · ' + esc(d.name) + '</span></span>'
+        + '<span class="score ' + scoreCls(d.score) + '">' + d.score + '</span></div>'
+        + (issues ? '<ul class="issues">' + issues + '</ul>' : '')
+        + (sugg ? '<ul class="sugg">' + sugg + '</ul>' : '')
+        + snippet + gaps + '</div>';
+    }).join('');
+  }
+
+  function renderSuggestions(list) {
+    var el = $('suggestions');
+    if (!list.length) { el.innerHTML = '<p class="hint">当前页面未生成代码建议。</p>'; return; }
+    el.innerHTML = list.map(function (s, i) {
+      var orig = s.originalCode
+        ? '<p class="hint" style="margin:10px 0 4px">原始代码</p><pre class="codeblock plain">' + esc(s.originalCode) + '</pre>' : '';
+      return '<details><summary>' + esc(s.title) + '</summary><div class="inner">'
+        + '<p style="font-size:13px;color:var(--muted)">' + esc(s.description) + '</p>' + orig
+        + '<p class="hint" style="margin:10px 0 4px">优化代码</p>'
+        + '<pre class="codeblock">' + esc(s.optimizedCode) + '</pre></div></details>';
+    }).join('');
+  }
+
+  var radarTech = null, radarContent = null;
+
+  function renderRadar(result) {
+    if (typeof Chart === 'undefined') return;
+    var mkChart = function (canvasId, prev, cat, borderColor, bgColor) {
+      var canvas = $(canvasId);
+      if (prev) prev.destroy();
+      return new Chart(canvas.getContext('2d'), {
+        type: 'radar',
+        data: {
+          labels: cat.dimensions.map(function (d) { return DIM_CN[d.name] || d.name; }),
+          datasets: [{
+            label: cat === result.technicalGEO ? 'Technical GEO' : 'Content GEO',
+            data: cat.dimensions.map(function (d) { return d.score; }),
+            backgroundColor: bgColor, borderColor: borderColor,
+            borderWidth: 2, pointRadius: 2, pointBackgroundColor: borderColor
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          scales: { r: { min: 0, max: 100, ticks: { stepSize: 20, backdropColor: 'transparent' }, pointLabels: { font: { size: 11 } } } },
+          plugins: { legend: { position: 'bottom', labels: { boxWidth: 14 } } },
+          animation: { duration: 600 }
+        }
+      });
+    };
+    radarTech = mkChart('radar-tech', radarTech, result.technicalGEO, '#0ea5e9', 'rgba(14,165,233,.18)');
+    radarContent = mkChart('radar-content', radarContent, result.contentGEO, '#f59e0b', 'rgba(245,158,11,.16)');
+  }
+
+  /* ---------- 代码优化 tab ---------- */
+  var FALLBACK_IMG = 'data:image/svg+xml;utf8,' + encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="48"><rect width="64" height="48" fill="#e2e8f0"/><text x="32" y="28" font-size="10" text-anchor="middle" fill="#64748b">no img</text></svg>');
+
+  $('btn-code-analyze').addEventListener('click', function () {
+    var html = $('code-input').value;
+    if (!html.trim()) { setStatus($('code-status'), '请先粘贴 HTML 代码', 'err'); return; }
+    var r = ENG().analyzeHTMLCode(html);
+    $('code-result').classList.remove('hidden');
+    var st = r.stats;
+    $('code-stats').innerHTML =
+      '<span class="chip">图片总数 <b>' + st.totalImages + '</b></span>'
+      + '<span class="chip ok">有效 alt <b>' + st.imagesWithAlt + '</b></span>'
+      + '<span class="chip ' + (st.imagesWithoutAlt ? 'bad' : 'ok') + '">问题 alt <b>' + st.imagesWithoutAlt + '</b></span>'
+      + '<span class="chip ' + (st.hasFaqSchema ? 'ok' : 'bad') + '">FAQ Schema ' + (st.hasFaqSchema ? '已有' : '缺失') + '</span>';
+    var TAG_CN = { missing: '缺失 alt', empty: '空 alt', meaningless: '无意义 alt' };
+    $('alt-issues').innerHTML = (r.altIssues || []).length
+      ? r.altIssues.map(function (it) {
+          return '<div class="alt-item">'
+            + '<img class="thumb" src="' + esc(it.src || FALLBACK_IMG) + '" alt="" loading="lazy" onerror="this.src=\'' + FALLBACK_IMG + '\'" />'
+            + '<div class="body"><div class="meta"><span class="tag ' + esc(it.type) + '">' + TAG_CN[it.type] + '</span>'
+            + (it.reason ? '<span style="font-size:12px;color:var(--muted)">' + esc(it.reason) + '</span>' : '') + '</div>'
+            + '<pre class="codeblock plain">' + esc(it.original) + '</pre>'
+            + '<div class="sug">建议 → ' + esc(it.suggestion) + '</div></div></div>';
+        }).join('')
+      : '<p class="hint" style="color:var(--green)">未发现 alt 问题。</p>';
+    $('faq-issues').innerHTML = (r.faqIssues || []).map(function (f) {
+      return '<div class="alt-item" style="border-top-style:solid"><div class="body">'
+        + '<div class="meta"><span class="tag ' + (f.type === 'missing' ? 'missing' : 'empty') + '">' + (f.type === 'missing' ? '缺少 FAQ Schema' : 'FAQ Schema 不完整') + '</span></div>'
+        + '<div class="sug">建议 → ' + esc(f.suggestion) + '</div></div></div>';
+    }).join('');
+    $('code-optimized').textContent = r.optimizedCode;
+    setStatus($('code-status'), '分析完成', 'ok');
+  });
+
+  /* ---------- AI 工具 tab（火山方舟直连） ---------- */
+  var ARK_KEY_LS = 'geo_ark_key', ARK_MODEL_LS = 'geo_ark_model', ARK_EP_LS = 'geo_ark_endpoint';
+  var ARK_DEFAULT_EP = 'https://ark.cn-beijing.volces.com/api/v3/chat/completions';
+  $('ark-key').value = localStorage.getItem(ARK_KEY_LS) || '';
+  $('ark-model').value = localStorage.getItem(ARK_MODEL_LS) || 'doubao-seed-1-6-flash-250815';
+  $('ark-endpoint').value = localStorage.getItem(ARK_EP_LS) || ARK_DEFAULT_EP;
+  $('btn-ark-save').addEventListener('click', function () {
+    localStorage.setItem(ARK_KEY_LS, $('ark-key').value.trim());
+    localStorage.setItem(ARK_MODEL_LS, $('ark-model').value.trim() || 'doubao-seed-1-6-flash-250815');
+    localStorage.setItem(ARK_EP_LS, $('ark-endpoint').value.trim() || ARK_DEFAULT_EP);
+    setStatus($('ark-status'), '已保存到本机浏览器', 'ok');
+  });
+  function arkReady() {
+    var key = localStorage.getItem(ARK_KEY_LS);
+    if (!key) { setStatus($('ark-status'), '请先填写并保存 API Key', 'err'); return null; }
+    return {
+      key: key,
+      model: localStorage.getItem(ARK_MODEL_LS) || 'doubao-seed-1-6-flash-250815',
+      endpoint: localStorage.getItem(ARK_EP_LS) || ARK_DEFAULT_EP
+    };
+  }
+  function streamArk(cfg, messages, onDelta, ctrl) {
+    return fetch(cfg.endpoint, {
+      method: 'POST', signal: ctrl.signal,
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + cfg.key },
+      body: JSON.stringify({ model: cfg.model, messages: messages, stream: true })
+    }).then(function (resp) {
+      if (!resp.ok) return resp.text().then(function (t) { throw new Error('HTTP ' + resp.status + ': ' + t.slice(0, 300)); });
+      var reader = resp.body.getReader(), decoder = new TextDecoder(), buf = '';
+      function pump() {
+        return reader.read().then(function (chunk) {
+          if (chunk.done) return;
+          buf += decoder.decode(chunk.value, { stream: true });
+          var lines = buf.split('\n');
+          buf = lines.pop();
+          lines.forEach(function (line) {
+            var t = line.trim();
+            if (t.indexOf('data:') !== 0) return;
+            var payload = t.slice(5).trim();
+            if (payload === '[DONE]') return;
+            try {
+              var json = JSON.parse(payload);
+              var delta = json.choices && json.choices[0] && json.choices[0].delta && json.choices[0].delta.content;
+              if (delta) onDelta(delta);
+            } catch (e) { /* 忽略不完整行 */ }
+          });
+          return pump();
+        });
+      }
+      return pump();
+    });
+  }
+  function streamInto(outEl, btnRun, btnStop, build) {
+    var cfg = arkReady();
+    if (!cfg) return;
+    var ctrl = new AbortController();
+    btnStop._ctrl = ctrl;
+    btnRun.disabled = true; btnRun.classList.add('hidden');
+    btnStop.classList.remove('hidden');
+    outEl.innerHTML = '<span class="cursor"></span>';
+    var text = '';
+    var flushTimer = null;
+    var pending = false;
+    function schedule() {
+      if (flushTimer || pending) return;
+      pending = true;
+      flushTimer = setTimeout(function () {
+        flushTimer = null; pending = false;
+        outEl.textContent = text;
+        outEl.appendChild(Object.assign(document.createElement('span'), { className: 'cursor' }));
+      }, 120);
+    }
+    build(ctrl).then(function (messages) { return streamArk(cfg, messages, function (d) { text += d; schedule(); }, ctrl); })
+      .catch(function (e) {
+        if (e.name === 'AbortError') { outEl.textContent = text + '\n（已停止）'; }
+        else { outEl.textContent = text + '\n\n[错误] ' + e.message; }
+      })
+      .finally(function () {
+        clearTimeout(flushTimer); pending = false;
+        if (text) outEl.textContent = text;
+        btnRun.disabled = false; btnRun.classList.remove('hidden');
+        btnStop.classList.add('hidden');
+      });
+  }
+
+  var GEO_COPY_PROMPT = '你是 GEO（生成式引擎优化）文案专家。按以下原则重写用户产品文案：'
+    + '1) 结论先行：首句 30 字内直接给出核心结论，作为总起句，不得照搬原文某条要点；'
+    + '2) 场景驱动：把功能参数改写为「场景 + 痛点 + 功能响应 + 效果」的完整叙事；'
+    + '3) 实体精确：用具体参数/技术名替代「顶级」「卓越」等营销修饰词；'
+    + '4) 结构化易读：仅当段落超过 4 行才拆分要点，保持原文形态（列表保持列表、段落保持段落）；'
+    + '5) 广告法合规（最高优先级）：禁用「最好/最佳/最新/第一/唯一/顶级」等绝对化用语，「最新」改为「新一代/新款」，年份只允许当前年份；'
+    + '6) 保留原文全部参数与事实，禁止编造。直接输出重写结果，不要解释。';
+  $('btn-ai-copy').addEventListener('click', function () {
+    var input = $('ai-copy-input').value.trim();
+    if (!input) { $('ai-copy-out').textContent = '请先粘贴文案'; return; }
+    streamInto($('ai-copy-out'), $('btn-ai-copy'), $('btn-ai-copy-stop'),
+      function () { return Promise.resolve([{ role: 'system', content: GEO_COPY_PROMPT }, { role: 'user', content: input }]); });
+  });
+  $('btn-ai-copy-stop').addEventListener('click', function () { this._ctrl && this._ctrl.abort(); });
+
+  $('btn-ai-alt').addEventListener('click', function () {
+    var src = currentAltImage;
+    if (!src) { $('ai-alt-out').textContent = '请先提供图片（URL / 上传 / 粘贴）'; return; }
+    streamInto($('ai-alt-out'), $('btn-ai-alt'), $('btn-ai-alt-stop'), function () {
+      return Promise.resolve([
+        { role: 'system', content: '你是电商/官网 alt 文案专家。根据图片内容生成一句简洁、信息密度高的中文 alt 描述（Apple 官网风格）：描述主体、关键外观特征与用途，30 字以内，不使用「图片」「照片」等词，不使用绝对化用语。直接输出 alt 文本。' },
+        { role: 'user', content: [{ type: 'text', text: '为这张图片生成 alt 描述：' }, { type: 'image_url', image_url: { url: src } }] }
+      ]);
+    });
+  });
+  $('btn-ai-alt-stop').addEventListener('click', function () { this._ctrl && this._ctrl.abort(); });
+
+  var currentAltImage = null;
+  function setAltImage(src) {
+    currentAltImage = src;
+    var img = $('ai-alt-preview');
+    img.src = src; img.classList.remove('hidden');
+  }
+  $('ai-alt-url').addEventListener('change', function () {
+    var v = this.value.trim();
+    if (/^(https?:\/\/\S+|data:image\/\S+)$/i.test(v)) setAltImage(v);
+  });
+  $('ai-alt-drop').addEventListener('click', function () { $('ai-alt-file').click(); });
+  $('ai-alt-file').addEventListener('change', function () {
+    if (this.files && this.files[0]) fileToDataUri(this.files[0]).then(setAltImage);
+  });
+  var dropEl = $('ai-alt-drop');
+  ['dragover', 'dragenter'].forEach(function (ev) {
+    dropEl.addEventListener(ev, function (e) { e.preventDefault(); dropEl.classList.add('drag'); });
+  });
+  ['dragleave', 'drop'].forEach(function (ev) {
+    dropEl.addEventListener(ev, function (e) { e.preventDefault(); dropEl.classList.remove('drag'); });
+  });
+  dropEl.addEventListener('drop', function (e) {
+    var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f && /^image\//.test(f.type)) fileToDataUri(f).then(setAltImage);
+  });
+  window.addEventListener('paste', function (e) {
+    if (!$('tab-ai').classList.contains('hidden') && e.clipboardData) {
+      var item = Array.prototype.find.call(e.clipboardData.items, function (i) { return /^image\//.test(i.type); });
+      if (item) { var f = item.getAsFile(); if (f) fileToDataUri(f).then(setAltImage); }
+    }
+  });
+  function fileToDataUri(file) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function () { resolve(reader.result); };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+})();
+</script>
+</body>
+</html>
