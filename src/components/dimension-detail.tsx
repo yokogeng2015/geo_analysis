@@ -91,7 +91,7 @@ export function DimensionDetail({
 
       {/* Issues */}
       {dimension.issues.length > 0 && (
-        <div className="mb-3">
+        <div>
           <p className="text-xs uppercase tracking-wider mb-1.5" style={{ color: '#9ca3af' }}>
             发现的问题
           </p>
@@ -104,27 +104,6 @@ export function DimensionDetail({
                   </svg>
                 </span>
                 {issue}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {/* Suggestions */}
-      {dimension.suggestions.length > 0 && (
-        <div>
-          <p className="text-xs uppercase tracking-wider mb-1.5" style={{ color: '#9ca3af' }}>
-            优化建议
-          </p>
-          <ul className="space-y-1.5">
-            {dimension.suggestions.map((suggestion, i) => (
-              <li key={i} className="flex items-start gap-2 text-sm" style={{ color: '#4b5563' }}>
-                <span className="mt-0.5 shrink-0" style={{ color: '#10b981' }}>
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </span>
-                {suggestion}
               </li>
             ))}
           </ul>
