@@ -224,6 +224,89 @@ export function parseHTML(html: string, url: string): ParsedPage {
     }
   }
 
+  // DOM 结构兜底提取（页面无 FAQPage JSON-LD 时生效，覆盖常见 FAQ DOM 模式）
+  const pushFaq = (rawQ: string, rawA: string) => {
+    const clean = (s: string) =>
+      s.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    const question = clean(rawQ);
+    const answer = clean(rawA);
+    if (question && answer && question.length <= 200 && answer.length >= 5) {
+      faqContent.push({ question, answer });
+    }
+  };
+
+  // ① details/summary 折叠面板
+  if (faqContent.length === 0) {
+    const detailsRegex = /<details[^>]*>([\s\S]*?)<\/details>/gi;
+    let dMatch;
+    while ((dMatch = detailsRegex.exec(html)) !== null) {
+      const block = dMatch[1];
+      const summary = block.match(/<summary[^>]*>([\s\S]*?)<\/summary>/i);
+      if (!summary) continue;
+      pushFaq(summary[1], block.replace(/<summary[\s\S]*?<\/summary>/i, ''));
+    }
+  }
+
+  if (faqContent.length === 0) {
+    // ② dl 语义结构：dt（问）+ dd（答）配对
+    const dtddRegex = /<dt[^>]*>([\s\S]*?)<\/dt>\s*<dd[^>]*>([\s\S]*?)<\/dd>/gi;
+    let tMatch;
+    while (
+      (tMatch = dtddRegex.exec(html)) !== null &&
+      faqContent.length < 20
+    ) {
+      pushFaq(tMatch[1], tMatch[2]);
+    }
+  }
+
+  if (faqContent.length === 0) {
+    // ③ FAQ 列表项：class 同时含 faq 与 item/listitem/entry，内部按
+    //    question 标记与 answer 标记的位置配对（如索尼 feature-faq-listitem）
+    const itemRegex =
+      /<(li|div)[^>]*class=["'][^"']*(?:faq[^"']*(?:item|listitem|entry)|(?:item|listitem|entry)[-_ ]?faq)[^"']*["'][^>]*>([\s\S]*?)<\/\1>/gi;
+    let iMatch;
+    while ((iMatch = itemRegex.exec(html)) !== null && faqContent.length < 20) {
+      const block = iMatch[2];
+      const qIdx = block.search(/class=["'][^"']*question/i);
+      const aIdx = block.search(/class=["'][^"']*answer/i);
+      if (qIdx === -1 || aIdx === -1 || aIdx <= qIdx) continue;
+      const qStart = block.indexOf('>', qIdx) + 1;
+      const qEnd = block.lastIndexOf('<', aIdx);
+      const aStart = block.indexOf('>', aIdx) + 1;
+      pushFaq(
+        block.slice(qStart, Math.max(qStart, qEnd)),
+        block.slice(aStart)
+      );
+    }
+  }
+
+  if (faqContent.length === 0) {
+    // ④ id/class 含 faq 的容器内「问句标题 + 相邻内容」启发式
+    const containerMatch = html.match(
+      /<(?:div|section|ul)[^>]*(?:id|class)=["'][^"']*faq[^"']*["'][^>]*>/i
+    );
+    if (containerMatch && containerMatch.index !== undefined) {
+      const winStart = containerMatch.index + containerMatch[0].length;
+      const win = html.slice(winStart, winStart + 40000);
+      const headingRegex = /<(h[1-6])[^>]*>([\s\S]*?)<\/\1>/gi;
+      let hMatch;
+      let pending: { q: string; end: number } | null = null;
+      while (
+        (hMatch = headingRegex.exec(win)) !== null &&
+        faqContent.length < 20
+      ) {
+        if (pending && hMatch.index > pending.end) {
+          pushFaq(pending.q, win.slice(pending.end, hMatch.index));
+        }
+        const text = hMatch[2].replace(/<[^>]+>/g, '').trim();
+        pending =
+          /[?？]\s*$/.test(text) && text.length <= 200
+            ? { q: text, end: headingRegex.lastIndex }
+            : null;
+      }
+    }
+  }
+
   // Check for sitemap
   const hasSitemap =
     html.includes('sitemap.xml') ||

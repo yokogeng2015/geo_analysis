@@ -78,6 +78,7 @@ src/
 
 ## 注意事项
 - 分析引擎在 `src/lib/geo-analyzer.ts`，基于正则解析 HTML
+- **FAQ 内容提取（parseHTML.faqContent）**：优先 FAQPage JSON-LD schema；无 schema 时按 4 层 DOM 模式兜底（互斥，取第一个命中层）：①`<details>/<summary>` 折叠面板 ②`<dl>` 的 dt/dd 配对 ③class 同时含 faq 与 item/listitem/entry 的列表项内 question/answer 标记位置配对（如索尼 feature-faq-listitem）④id/class 含 faq 的容器内「问句标题（? 结尾）+ 相邻内容」启发式；上限 20 条，question≤200 字、answer≥5 字防误报
 - **文本提取（collectContentTexts）**：SPA 页面数据常藏在 script JSON 和标签属性（如华为的 `<input data-xxx="JSON">`）中，提取路径包括：可见段落/列表 → script 块 → 属性值 JSON → body JSON 兜底；处理时先解码实体（`&#34;`/`&lt;`）再反转义 `\"`，避免破坏标签边界
 - **引文清洗**：findScenarioTexts/findQuantTexts 通过 FOOTER_NOISE 过滤页脚/客服/备案噪声，按长度+信息密度评分排序，确保引用真实完整句子
 - 竞品对比点数据由 `generateComparisonPoints` 生成，API 返回 `comparisonPoints: Record<compUrl, ComparisonPoint[]>`
